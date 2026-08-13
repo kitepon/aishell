@@ -14,32 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-and-package:
-    name: Swift test and package
-    runs-on: macos-15
-    timeout-minutes: 30
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Record toolchain
-        run: |
-          swift --version
-          xcodebuild -version
-          node --version
-          npm --version
-
-      - name: Install development workers
-        run: |
-          brew install ripgrep
-          rg --version
-
-      - name: Run Swift tests
-        run: swift test
-
-      - name: Package application
-        run: scripts/package-app.sh release
-
-      - name: Inspect npm payload
-        run: npm pack --dry-run
+  full:
+    uses: kitepon/dotagents/.github/workflows/factory-full-ci.yml@main
+    with:
+      environment: macos-native
+      full-command: >-
+        swift --version && xcodebuild -version && node --version && npm --version && rg --version && swift test && scripts/package-app.sh release && npm pack --dry-run
