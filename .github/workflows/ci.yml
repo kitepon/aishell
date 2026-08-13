@@ -18,5 +18,4 @@ jobs:
     uses: kitepon/dotagents/.github/workflows/factory-full-ci.yml@main
     with:
       environment: macos-native
-      full-command: >-
-        swift --version && xcodebuild -version && node --version && npm --version && rg --version && swift test && scripts/package-app.sh release && npm pack --dry-run
+      full-command: scripts/ci-full.sh
