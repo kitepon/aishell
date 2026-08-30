@@ -34,11 +34,24 @@ test("CIは製品所有のlocal reusable workflowだけを呼ぶ", async () => {
   assert.doesNotMatch(ci, /kitepon\/dotagents\/.github\/workflows/);
   assert.match(
     ci,
-    /documentation-command:\s*npm ci --ignore-scripts --no-audit --no-fund && node --test scripts\/repository-contract\.test\.mjs/,
+    /dependency-command:\s*npm ci --ignore-scripts --no-audit --no-fund/,
+  );
+  assert.match(
+    ci,
+    /documentation-command:\s*npm ci --force --ignore-scripts --no-audit --no-fund && node --test scripts\/repository-contract\.test\.mjs/,
   );
   assert.equal((productFull.match(/shell:\s*pwsh/g) ?? []).length, 3);
   assert.doesNotMatch(productFull, /Progra~1\\Git\\bin\\bash\.exe/);
   await access(path.join(projectDirectory, ".github/workflows/product-full-ci.yml"));
+});
+
+test("main pushのfull CIは後続pushで取り消さず、PRだけを更新できる", async () => {
+  const ci = await readFile(path.join(projectDirectory, ".github/workflows/ci.yml"), "utf8");
+  assert.match(
+    ci,
+    /cancel-in-progress:\s*\$\{\{\s*github\.event_name == 'pull_request'\s*\}\}/,
+  );
+  assert.doesNotMatch(ci, /cancel-in-progress:\s*true/);
 });
 
 test("repository内のMarkdownはローカルリンク切れを持たない", async () => {

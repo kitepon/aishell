@@ -15,6 +15,10 @@ AIShell 0.4.12 aligns the public package and repository surface with the canonic
   workflow.
 - The documentation gate installs its own development parser and checks CommonMark/GFM reference
   links and HTML assets, including `srcset`, inside both the repository and the npm tarball.
+- Main-branch product CI now runs to completion even when a later push arrives; only superseded pull
+  request runs are cancelled.
+- The Linux documentation job overrides the package's macOS arm64 platform restriction only for a
+  script-disabled development-dependency install.
 - README hero images use an absolute public URL, so the npm page no longer points outside the
   published tarball.
 

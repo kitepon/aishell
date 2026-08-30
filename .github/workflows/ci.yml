@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ownership:
@@ -35,5 +35,6 @@ jobs:
     with:
       environment: macos-native
       dependency-command: npm ci --ignore-scripts --no-audit --no-fund
-      documentation-command: npm ci --ignore-scripts --no-audit --no-fund && node --test scripts/repository-contract.test.mjs
+      # classifyはLinuxで動くため、macOS arm64限定のroot package制約だけを上書きする。
+      documentation-command: npm ci --force --ignore-scripts --no-audit --no-fund && node --test scripts/repository-contract.test.mjs
       full-command: scripts/ci-full.sh
