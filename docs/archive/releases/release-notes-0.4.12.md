@@ -13,6 +13,10 @@ AIShell 0.4.12 aligns the public package and repository surface with the canonic
   `expanded-v1` full (29 tools), matching the executable catalog tests.
 - CI calls a product-owned reusable workflow and rejects a return to an external mutable factory
   workflow.
+- The documentation gate installs its own development parser and checks CommonMark/GFM reference
+  links and HTML assets, including `srcset`, inside both the repository and the npm tarball.
+- README hero images use an absolute public URL, so the npm page no longer points outside the
+  published tarball.
 
 ## Release gate
 
