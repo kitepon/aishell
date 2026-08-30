@@ -2,6 +2,7 @@
 .build/
 build/
 dist/
+node_modules/
 .backups/
 .npmrc
 *.tgz

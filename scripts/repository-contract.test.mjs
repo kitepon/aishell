@@ -4,14 +4,13 @@ import { access, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import {
+  assertPackedMarkdownClosed,
+  documentTargets,
+  localMarkdownTargets,
+} from "./markdown-link-targets.mjs";
 
 const projectDirectory = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-
-const localMarkdownTargets = (markdown) => [...markdown.matchAll(/!?\[[^\]]*\]\(([^)]+)\)/g)]
-  .map((match) => match[1].trim().replace(/^<|>$/g, ""))
-  .filter((target) => target && !/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(target))
-  .map((target) => decodeURIComponent(target.split("#", 1)[0].split("?", 1)[0]))
-  .filter(Boolean);
 
 const markdownFiles = async (directory, prefix = "") => {
   const found = [];
@@ -33,7 +32,10 @@ test("CIは製品所有のlocal reusable workflowだけを呼ぶ", async () => {
   );
   assert.match(ci, /uses:\s*\.\/\.github\/workflows\/product-full-ci\.yml/);
   assert.doesNotMatch(ci, /kitepon\/dotagents\/.github\/workflows/);
-  assert.match(ci, /documentation-command:\s*node --test scripts\/repository-contract\.test\.mjs/);
+  assert.match(
+    ci,
+    /documentation-command:\s*npm ci --ignore-scripts --no-audit --no-fund && node --test scripts\/repository-contract\.test\.mjs/,
+  );
   assert.equal((productFull.match(/shell:\s*pwsh/g) ?? []).length, 3);
   assert.doesNotMatch(productFull, /Progra~1\\Git\\bin\\bash\.exe/);
   await access(path.join(projectDirectory, ".github/workflows/product-full-ci.yml"));
@@ -55,6 +57,46 @@ test("repository内のMarkdownはローカルリンク切れを持たない", as
   assert.deepEqual(missing, []);
 });
 
+test("Markdown ASTは参照形式・入れ子・HTML資産を抽出しcode例を無視する", () => {
+  const targets = documentTargets(`
+[![badge](https://example.com/badge.svg)](docs/guide_(v1).md)
+![hero][asset]
+
+[asset]: images/hero.png
+
+\`[code](missing-inline.md)\`
+
+\`\`\`md
+[code](missing-fence.md)
+\`\`\`
+
+<a href="docs/a&amp;b.md"><img src="images/direct.png" srcset="images/one.png 1x, images/two.png 2x"></a>
+`);
+  assert.deepEqual(targets, [
+    "docs/guide_(v1).md",
+    "https://example.com/badge.svg",
+    "images/hero.png",
+    "docs/a&b.md",
+    "images/direct.png",
+    "images/one.png",
+    "images/two.png",
+  ]);
+  assert.deepEqual(localMarkdownTargets("[外部](https://example.com) [章](#x) [内部](docs/a.md?q=1#x)"), [
+    "docs/a.md",
+  ]);
+});
+
+test("参照形式の不足targetを配布閉包違反として拒否する", () => {
+  assert.throws(
+    () => assertPackedMarkdownClosed(
+      new Set(["README.md"]),
+      "README.md",
+      "![hero][asset]\n\n[asset]: images/missing.png\n",
+    ),
+    /README\.md -> images\/missing\.png/,
+  );
+});
+
 test("npm配布物に入るMarkdownのローカルリンクは配布物内で閉じる", async () => {
   const packed = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--ignore-scripts", "--json"], {
     cwd: projectDirectory,
@@ -64,9 +106,10 @@ test("npm配布物に入るMarkdownのローカルリンクは配布物内で閉
   const missing = [];
   for (const markdownPath of [...files].filter((file) => /\.md$/i.test(file))) {
     const markdown = await readFile(path.join(projectDirectory, markdownPath), "utf8");
-    for (const target of localMarkdownTargets(markdown)) {
-      const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(markdownPath), target));
-      if (!files.has(resolved)) missing.push(`${markdownPath} -> ${target}`);
+    try {
+      assertPackedMarkdownClosed(files, markdownPath, markdown);
+    } catch (error) {
+      missing.push(error.message);
     }
   }
   assert.deepEqual(missing, []);

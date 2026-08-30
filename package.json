@@ -50,6 +50,13 @@
   "engines": {
     "node": ">=18"
   },
+  "devDependencies": {
+    "parse-srcset": "1.0.2",
+    "parse5": "^8.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
+  },
   "publishConfig": {
     "access": "public"
   }

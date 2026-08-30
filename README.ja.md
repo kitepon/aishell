@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/og.png" alt="AIShell — AI開発へDirect OS contextを提供" width="100%">
+  <img src="https://raw.githubusercontent.com/kitepon/aishell/main/.github/og.png" alt="AIShell — AI開発へDirect OS contextを提供" width="100%">
 </p>
 
 # AIShell
