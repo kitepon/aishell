@@ -1,6 +1,6 @@
 {
   "name": "@quolu/aishell",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "A native macOS state runtime with high-density MCP tools for AI development",
   "license": "Apache-2.0",
   "author": {
@@ -9,12 +9,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kitepon-rgb/aishell.git"
+    "url": "git+https://github.com/kitepon/aishell.git"
   },
   "bugs": {
-    "url": "https://github.com/kitepon-rgb/aishell/issues"
+    "url": "https://github.com/kitepon/aishell/issues"
   },
-  "homepage": "https://github.com/kitepon-rgb/aishell#readme",
+  "homepage": "https://github.com/kitepon/aishell#readme",
   "keywords": [
     "mcp",
     "macos",
@@ -40,8 +40,9 @@
   "scripts": {
     "build:npm": "node scripts/prepare-npm-release.mjs",
     "prepack": "npm run build:npm",
-    "test": "swift test && npm run test:release-gate",
+    "test": "swift test && npm run test:release-gate && npm run test:repository-contract",
     "test:release-gate": "node --test scripts/verify-release-commit.test.mjs",
+    "test:repository-contract": "node --test scripts/repository-contract.test.mjs",
     "test:package": "npm run build:npm && node scripts/verify-npm-package.mjs",
     "verify:release-commit": "node scripts/verify-release-commit.mjs",
     "prepublishOnly": "npm run verify:release-commit && npm run test:package"

@@ -17,21 +17,25 @@ Direct OSは交換可能なbackendではなく、効率化を生む設計上の�
 
 ## 必要時の参照先
 
-- roadmap、MCP surface、benchmark、context圧縮を変える時だけ`docs/development-efficiency-plan.md`を読む。
+- 完了した能力拡張campaignの経緯が必要な時だけ`docs/archive/development-efficiency-plan.md`を読む。現行の製品目的と設計境界は本ファイルを正とする。
 - 外部調査の前だけ`rag/INDEX.md`を検索する。
 - 公開挙動、配布、利用手順を変える時だけ`README.md`を読む。
-- legacy挙動の由来が必要な時だけ`docs/direct-os-spike.md`を読む。今後のGUIロードマップには使わない。
+- 文書の所有と寿命を判断する時だけ`docs/README.md`を読む。
+- legacy挙動の由来が必要な時だけ`docs/archive/direct-os-spike.md`を読む。今後のGUIロードマップには使わない。
 
-実装Phaseではplanのcheckboxとgateを更新する。削減率は、隔離された同一model snapshot、reasoning、fixture、prompt、sandboxでbaselineと比較できる場合だけ主張する。主KPIは失敗試行のtokenも含む`tokens per solved task`。wire bytesやtokenizer概算をprovider報告tokenと混ぜない。
+削減率は、隔離された同一model snapshot、reasoning、fixture、prompt、sandboxでbaselineと比較できる場合だけ主張する。主KPIは失敗試行のtokenも含む`tokens per solved task`。wire bytesやtokenizer概算をprovider報告tokenと混ぜない。
 
 ## アーキテクチャ境界
 
+- AIShellは単独でinstall、config、state/schema、migration、diagnostics、recovery、
+  update、releaseできる契約を本repo内に持つ。dotagentsは製品横断wireと互換projectionを
+  統合するだけで、AIShellの内部状態や運用判断を制御しない。
 - AI hostがreasoning、thread、compaction、sub-agent、汎用PTYを所有する。AIShellで再実装しない。
 - AIShellは許可root、file identity、FSEvents観測とfilesystem照合によるdelta、直接起動したprocess、完全log/artifact、freshnessを所有する。FSEvents単独を完全な履歴とは見なさない。
 - Git、`rg`、compiler、test runner、SourceKit-LSPはAIShellが直接起動・監視するworkerとして再利用する。状態の所有者や公開toolの寄せ集めにはしない。
 - shell文字列を評価せず、executable URL、引数、working directoryを分離したままprocessを起動する。shell群、`env`、`osascript`のbasename拒否は汎用shell wrapperへ退行させない製品上の設計レールであり、security boundaryではない。許可workerの子processや改名binaryまで阻止するものとして扱わない。
 - `AIShellCore`へdomain機能、`AIShellMCP`へprotocol変換を置く。MCP handlerへ開発ロジックを埋め込まない。
-- 既存20 primitiveは互換経路・下位実装としてfull profileに残す。既定development profileの5 toolと合わせ、full profileは25 toolである。
+- 既存20 primitiveは互換経路・下位実装としてfull profileに残す。baseline fullは高密度5＋control 2＋legacy 18の25 tool、`expanded-v1` fullは高密度9＋control 2＋legacy 18の29 toolである。
 
 ## Tool / result規約
 
@@ -51,7 +55,7 @@ Direct OSは交換可能なbackendではなく、効率化を生む設計上の�
 - `Sources/AIShellMCP`: stdio JSON-RPC / MCP adapter
 - `Sources/AIShellApp`: macOS管理アプリ
 - `Tests/AIShellCoreTests`: focused unit/integration tests
-- `docs/`: active planと設計判断
+- `docs/`: 現役索引、診断contract、ADR/evidence、archive
 - `rag/`: 調査統合、`rag/raw/`: 一次資料変換物
 
 標準確認:
@@ -64,3 +68,9 @@ scripts/package-app.sh release
 変更中は対象focused testだけを回し、完了時に関連testを1回確認する。MCP wire変更ではinitialize、tools/list、成功・失敗resultのfixtureを確認する。docs/RAG/AGENTSだけの変更ではSwift testを回さず、リンク、Markdown、diffを確認する。
 
 外部仕様を調べた場合は、取得日・出典・確度付きで`rag/raw/`へ保存し、統合記事と`rag/INDEX.md`を更新する。撤回済み資料やvendor効果量を製品根拠へ昇格させない。
+
+## 文書規約
+
+- 現役文書は`docs/README.md`に列挙する。同じ目的の文書はcontractに最も近い1文書へmergeする。
+- 完了plan、release notes、handoff、置換済み設計は`docs/archive/`へ移す。ADRとevidenceは専用folderに保持する。
+- archiveを現行操作の正本にしない。release作業の入口はREADMEとproduct-owned script、公開記録はGitHub Releasesを正とする。

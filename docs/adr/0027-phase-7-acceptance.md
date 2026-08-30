@@ -61,7 +61,7 @@ policy `dotagents-heavy-v1`に従い、受入主張5件（288完走とcheckpoint
 - `docs/evidence/2026-07-23-ace-073-release-finalization.md`
 - `benchmarks/results/representative-production-20260723-v10/run/result-reassembly-receipt.json`
 - `benchmarks/results/representative-production-20260723-v10/rerun-0.3.5/probe-B.json`
-- `docs/release-notes-0.3.5.md`
+- `docs/archive/releases/release-notes-0.3.5.md`
 
 ## Consequences
 

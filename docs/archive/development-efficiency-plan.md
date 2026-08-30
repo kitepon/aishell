@@ -1,13 +1,17 @@
 ---
 title: AIShell 汎用開発機能拡張計画
-updated: 2026-08-04
-status: planned-lattice-canonical
+updated: 2026-08-30
+status: completed-archived
 owner: AIShell
 north_star: macOSの生きた状態を直接所有し、成功率を維持して開発課題あたりの総model tokenと所要時間を減らす
 lattice_plan: aishell-capability-expansion
 ---
 
 # AIShell 汎用開発機能拡張計画
+
+> 2026-07-24に全8 Phaseを受け入れ、campaignは完結した。現行のnorth starと設計境界は
+> [`AGENTS.md`](../../AGENTS.md)、公開利用・更新・release手順は[`README.md`](../../README.md)を正とする。
+> 本文は判断と実装経緯を追跡するための履歴であり、現行工程の正本ではない。
 
 ## 0. 決定
 
@@ -19,7 +23,7 @@ lattice_plan: aishell-capability-expansion
 Claudeのschema拒否、許可root外、Codexのdefault profile登録、cursorなし検索の既定失敗、全体routing正典の入口競合が
 重なっていた。狭い単発検索ではnative `rg`の方が速く短いことも同時に実測したため、AIShellは反復・複数file・
 大出力・process lifecycleへ限定して優先する。根拠と修理一覧は
-[adoption監査](../rag/development-adoption-audit-2026-08-04.md)を正とする。
+[adoption監査](../../rag/development-adoption-audit-2026-08-04.md)を正とする。
 
 2026-07-20のオーナー裁定により、初期5 toolを土台として、提案済みのS〜B機能をすべて実装対象へ入れる。
 狙いは公開tool名の本数ではなく、高頻度の複数call、再scan、再読、再実行、待機を、macOSの生きた状態を
@@ -34,7 +38,7 @@ paired benchmarkを通過したものに限る。効果不足の機能を成功�
 - 現在地と次のready task: `lattice todo status`
 - store・source inventory検証: `lattice todo verify --plan aishell-capability-expansion`
 - Gantt再生成: `lattice todo gantt`
-- 生成済み工程表示: [`.lattice/generated/gantt.html`](../.lattice/generated/gantt.html)
+- 生成済み工程表示: [`.lattice/generated/gantt.html`](../../.lattice/generated/gantt.html)
 - canonical plan: `lattice status --json`が返すactive revision（解決正本: `.lattice/todo/manifest.json`）
 - 並列境界request: `.lattice/import/aishell-parallel-wave-request.json`、`.lattice/import/aishell-parallel-wave-b-request.json`
 - fresh verify済みcompile receipt: `.lattice/evidence/aishell-parallel-wave-plan.json`、`.lattice/evidence/aishell-parallel-wave-b-plan.json`
@@ -235,10 +239,10 @@ default profileが最大9 toolでS〜B能力へ到達した時に本計画を完
 
 ## 9. 根拠
 
-- [AIShell開発効率ランタイム調査](../rag/development-efficiency-runtime.md)
-- [M1 benchmark evidence](evidence/aishell-efficiency-m1-benchmark.md)
-- [初期surface ADR](adr/0001-os-owned-high-density-runtime.md)
-- [現行公開挙動](../README.md)
+- [AIShell開発効率ランタイム調査](../../rag/development-efficiency-runtime.md)
+- [M1 benchmark evidence](../evidence/aishell-efficiency-m1-benchmark.md)
+- [初期surface ADR](../adr/0001-os-owned-high-density-runtime.md)
+- [現行公開挙動](../../README.md)
 
 未検証の削減率、host挙動、semantic index効果は本文の期待ではなく、Lattice taskが保持するpaired benchmark
 evidenceを正とする。

@@ -4,7 +4,7 @@
 
 # AIShell
 
-[![CI](https://github.com/kitepon-rgb/aishell/actions/workflows/ci.yml/badge.svg)](https://github.com/kitepon-rgb/aishell/actions/workflows/ci.yml)
+[![CI](https://github.com/kitepon/aishell/actions/workflows/ci.yml/badge.svg)](https://github.com/kitepon/aishell/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@quolu/aishell)](https://www.npmjs.com/package/@quolu/aishell)
 ![macOS 15+](https://img.shields.io/badge/macOS-15%2B-111827)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138)
@@ -16,9 +16,10 @@
 [kitepon.dev](https://kitepon.dev/)を運営する[クオ（@QLyun35332）](https://x.com/QLyun35332)が
 開発・メンテナンスしています。
 
-**所有境界:** 本repositoryはApple Silicon Mac向けOS context runtimeを所有します。
-製品横断の導入・統合契約は、kitepon.devの製品開発を支える内部基盤
-[dotagents](https://github.com/kitepon-rgb/dotagents)が担当します。
+**所有境界:** 本repositoryはApple Silicon Mac向けruntimeのinstall、設定、
+state/schema migration、診断、復旧、更新、releaseを単独で所有します。
+[dotagents](https://github.com/kitepon/dotagents)は公開contractを使って製品横断wireと
+互換性を統合しますが、AIShellの内部運用を制御しません。
 
 AIShellは許可root、file identity、filesystem照合state、直接起動したprocess、完全log、artifactを所有する。reasoning、thread、compaction、sub-agent、汎用terminalはAI hostの責務として残す。
 
@@ -117,7 +118,7 @@ aishell-open
 ## Sourceからbuild
 
 ```sh
-git clone https://github.com/kitepon-rgb/aishell.git
+git clone https://github.com/kitepon/aishell.git
 cd aishell
 swift test
 scripts/package-app.sh release
@@ -171,6 +172,35 @@ full profileにはfile一覧・read、SHA-256競合検出付きatomic update、c
 - 初回workspace entryはbounded previewで、後続deltaはcursor pageになる。
 - Developer ID署名とnotarizationは未設定。
 
+## 運用・更新・release
+
+単独installの更新は初回と同じ公式npm経路を使い、新版の管理アプリを開く。
+
+```sh
+npm install -g @quolu/aishell@latest
+aishell-open
+```
+
+未設定・停止中の復旧入口は`runtime_status`と`runtime_open_manager`である。
+工場consumerは専用`AISHELL_TOOL_PROFILE=factory` MCP surfaceから
+`factory_diagnostics`を呼ぶ。schemaとprivacy境界は
+[製品側diagnostics contract](https://github.com/kitepon/aishell/blob/main/docs/factory-diagnostics.md)が正である。
+
+releaseでは`AIShellProduct.version`と`package.json`を一致させ、release記録を
+[`docs/archive/releases/`](https://github.com/kitepon/aishell/tree/main/docs/archive/releases)へ追加して、次を実行する。
+
+```sh
+npm test
+npm run test:package
+git fetch origin
+npm run verify:release-commit
+npm publish --access public
+```
+
+release gateはdirty treeと既定branchへ未着地のcommitを拒否する。publish後は対応する
+GitHub Releaseを作り、`@quolu/aishell@latest`を再installしてMCP initializeと
+`factory_diagnostics`をsmokeする。公開済みversionの正本はGitHub Releasesである。
+
 ## 開発検証
 
 ```sh
@@ -189,9 +219,10 @@ scripts/package-app.sh release
 
 ## ContributionとSecurity
 
-変更提案前に[CONTRIBUTING.md](CONTRIBUTING.md)を確認してほしい。脆弱性はpublic issueへ書かず、[SECURITY.md](SECURITY.md)のprivate経路で報告する。
+変更提案前に[CONTRIBUTING.md](https://github.com/kitepon/aishell/blob/main/CONTRIBUTING.md)を確認してほしい。脆弱性はpublic issueへ書かず、[SECURITY.md](https://github.com/kitepon/aishell/blob/main/SECURITY.md)のprivate経路で報告する。
 
-release notesは[`docs/`](docs/)に置き、GitHub Releasesを公開済みversionの正本とする。
+現役文書の索引は[`docs/README.md`](https://github.com/kitepon/aishell/blob/main/docs/README.md)、過去のrelease notesは
+[`docs/archive/releases/`](https://github.com/kitepon/aishell/tree/main/docs/archive/releases)に置く。
 
 ## License
 

@@ -1,5 +1,9 @@
 # Factory diagnostics contract
 
+This is the product-owned source of truth for AIShell diagnostics. Factory
+integrators, including dotagents and BugHub, consume this read-only contract;
+they do not own AIShell runtime state, schema migration, or readiness decisions.
+
 AIShell exposes the read-only MCP tool `factory_diagnostics` only through the dedicated
 `AISHELL_TOOL_PROFILE=factory` profile. This is a factory-reporter surface, not a development
 profile: its catalog contains this tool alone. The response schema is fixed at

@@ -4,7 +4,7 @@
 
 # AIShell
 
-[![CI](https://github.com/kitepon-rgb/aishell/actions/workflows/ci.yml/badge.svg)](https://github.com/kitepon-rgb/aishell/actions/workflows/ci.yml)
+[![CI](https://github.com/kitepon/aishell/actions/workflows/ci.yml/badge.svg)](https://github.com/kitepon/aishell/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@quolu/aishell)](https://www.npmjs.com/package/@quolu/aishell)
 ![macOS 15+](https://img.shields.io/badge/macOS-15%2B-111827)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138)
@@ -15,10 +15,12 @@
 
 Built and maintained by [Quo](https://x.com/QLyun35332) at [kitepon.dev](https://kitepon.dev/en).
 
-**Ownership boundary:** this repository owns the macOS Apple Silicon OS-context
-runtime. Cross-product installation and the integration contract are handled by
-[dotagents](https://github.com/kitepon-rgb/dotagents), the internal development
-toolchain behind kitepon.dev's products.
+**Ownership boundary:** this repository owns the standalone macOS Apple Silicon
+runtime, including installation, configuration, state/schema migration,
+diagnostics, recovery, updates, and releases.
+[dotagents](https://github.com/kitepon/dotagents) consumes the public contract
+for cross-product wiring and compatibility; it does not control AIShell's
+internal operation.
 
 AIShell owns the OS-facing state below the model: allowed roots, file identity, filesystem reconciliation, directly launched processes, complete logs, and retained artifacts. The AI host remains responsible for reasoning, threads, compaction, sub-agents, and general-purpose terminal work.
 
@@ -115,7 +117,7 @@ The current experimental build is not yet Developer ID signed or notarized.
 ## Build from source
 
 ```sh
-git clone https://github.com/kitepon-rgb/aishell.git
+git clone https://github.com/kitepon/aishell.git
 cd aishell
 swift test
 scripts/package-app.sh release
@@ -171,6 +173,37 @@ The full profile includes file listing and reads, atomic SHA-256-guarded updates
 - Initial workspace entries are a bounded preview; later deltas are cursor-paged.
 - Developer ID signing and notarization are not yet configured.
 
+## Operations, updates, and releases
+
+Upgrade a standalone installation through the same official npm path used for
+initial installation, then open the newly installed manager:
+
+```sh
+npm install -g @quolu/aishell@latest
+aishell-open
+```
+
+`runtime_status` and `runtime_open_manager` are the recovery entrypoints for an
+unconfigured or paused runtime. Factory consumers call `factory_diagnostics`
+through the dedicated `AISHELL_TOOL_PROFILE=factory` MCP surface; its schema and
+privacy boundary are owned by [the product contract](https://github.com/kitepon/aishell/blob/main/docs/factory-diagnostics.md).
+
+For a release, keep `AIShellProduct.version` and `package.json` aligned, add the
+release record under [`docs/archive/releases/`](https://github.com/kitepon/aishell/tree/main/docs/archive/releases), and run:
+
+```sh
+npm test
+npm run test:package
+git fetch origin
+npm run verify:release-commit
+npm publish --access public
+```
+
+The release gate rejects a dirty tree or a commit that has not landed on the
+default branch. After publishing, create the matching GitHub Release, reinstall
+`@quolu/aishell@latest`, and smoke MCP initialize plus `factory_diagnostics`.
+GitHub Releases are the public record of shipped versions.
+
 ## Development
 
 ```sh
@@ -189,9 +222,10 @@ On the original verification machine, Xcode 26.6 and the installed CoreSimulator
 
 ## Contributing and security
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a change. Please report vulnerabilities through the private process in [SECURITY.md](SECURITY.md), not through a public issue.
+See [CONTRIBUTING.md](https://github.com/kitepon/aishell/blob/main/CONTRIBUTING.md) before proposing a change. Please report vulnerabilities through the private process in [SECURITY.md](https://github.com/kitepon/aishell/blob/main/SECURITY.md), not through a public issue.
 
-Release notes are kept in [`docs/`](docs/). GitHub Releases are the public record for shipped versions.
+The current documentation map is [`docs/README.md`](https://github.com/kitepon/aishell/blob/main/docs/README.md). Historical
+release notes live in [`docs/archive/releases/`](https://github.com/kitepon/aishell/tree/main/docs/archive/releases).
 
 ## License
 

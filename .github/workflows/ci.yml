@@ -14,8 +14,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ownership:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: product owns its CI contract
+        shell: bash
+        run: |
+          test -f .github/workflows/product-full-ci.yml
+          git grep -q 'uses: \.\/\.github\/workflows\/product-full-ci\.yml' -- .github/workflows
+          owner_repo='kitepon/dotagents'
+          if git grep -n "uses: $owner_repo/.github/workflows" -- .github/workflows; then
+            echo '製品CIをdotagentsのworkflowへ委譲できません。' >&2
+            exit 1
+          fi
+
   full:
-    uses: kitepon/dotagents/.github/workflows/factory-full-ci.yml@main
+    # 製品側の検証契約を dotagents の将来変更から独立させる。
+    uses: ./.github/workflows/product-full-ci.yml
     with:
       environment: macos-native
+      documentation-command: node --test scripts/repository-contract.test.mjs
       full-command: scripts/ci-full.sh
