@@ -6,6 +6,8 @@ confidence: 中〜高。製品仮説と再利用候補は実装前検証が必�
 status: research recommendation; implementation decisionではない
 ---
 
+> 本書は調査・実測時点の記録。フォルダ登録と許可範囲に関する現行仕様は[ADR 0030](../../docs/adr/0030-folder-registration-removal.md)を参照する。現在の操作手順はREADMEに従う。
+
 # macOS向けAI OSランタイム 初期機能調査 v0.2
 
 ## 研究課題

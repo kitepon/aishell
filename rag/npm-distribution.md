@@ -1,7 +1,7 @@
 # AIShell npm配布判断
 
 - 出典: [[raw/npm-publishing-2026]]
-- 検証日: 2026-07-19
+- 検証日: 2026-07-19、2026-09-06追記
 - 確度: 高（公式仕様 + registry実測）
 
 ## 採用構成
@@ -36,7 +36,15 @@ npm install -g @quolu/aishell@0.4.4
 upgradeされた窓の検知は、app側（`InstallationIntegrity`）だけを正とする。`verify-npm-package.mjs`
 に「install系lifecycle scriptを持たない」ことのassertionを置いて、再発を機械gateで止める。
 
-## 実測
+## 公開認証（2026-09-06確認）
+
+- 出典: [npm公式変更告知](https://github.blog/changelog/2025-12-09-npm-classic-tokens-revoked-session-based-auth-and-cli-token-management-now-available/)、[Trusted publishing](https://docs.npmjs.com/trusted-publishers/)、[[raw/npm-session-auth-20260906]]。
+- `npm login`は2時間のsessionを発行する。期限後は再ログインが必要で、session中の公開にも2FAが適用される。
+- 0.5.0公開では保存認証がE401になり、ログイン完了後の公開にも別のWebAuthn認証が要求された。対話PTYから`--browser=false`で新しい認証URLを取得し、Chromeで認証して公開が成功した。出力リダイレクト時はEOTPで終了した。
+- 信頼済み公開はOIDCでCIのidentityを検証し、公開用の長期tokenを不要にする方式。今回の公開は手動認証で実施した。
+- 公開手順は[README](../README.md)、0.5.0の公開版検証は[ADR 0030](../docs/adr/0030-folder-registration-removal.md)を参照する。
+
+## 初回配布時の実測（0.3.1の履歴）
 
 - 公開・global install検証済み: `@quolu/aishell@0.3.1`、dist-tag `latest`
 - registry shasum: `b6407da41c579a4a9e995bf8dc4654df43c05a07`

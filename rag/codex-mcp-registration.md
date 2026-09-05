@@ -1,12 +1,12 @@
 # AIShellをCodexの別タスクへ公開する
 
 - 出典: [[raw/codex-global-mcp-config]]
-- 取得・検証日: 2026-07-19
+- 取得・検証日: 2026-07-19、2026-09-06追記
 - 確度: 高（公式仕様 + ローカル実測）
 
 ## 判断
 
-AIShellはネットワークサーバーや常駐daemonにせず、アプリに同梱したMCP helperをCodexの個人設定へstdio serverとして登録する。これにより、同じMac上の新しいCodexタスクから利用でき、OS操作の許可範囲と停止状態はAIShell側のランタイム設定へ集約される。
+AIShellはネットワークサーバーや常駐daemonにせず、アプリに同梱したMCP helperをCodexの個人設定へstdio serverとして登録する。これにより、同じMac上の新しいCodexタスクから利用でき、停止状態はAIShellのランタイム設定が保持する。操作対象フォルダの登録は不要で、パス解決は[ADR 0030](../docs/adr/0030-folder-registration-removal.md)に従う。
 
 ## 登録
 
@@ -14,7 +14,13 @@ AIShellはネットワークサーバーや常駐daemonにせず、アプリに�
 codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
 ```
 
-## 実測
+## 接続後の確認
+
+MCP接続後に`runtime_status`で`relativePathBase`と停止状態を確認する。グローバルinstallを更新した場合はMCPを再接続する。公開版の確認結果は[ADR 0030](../docs/adr/0030-folder-registration-removal.md)に記録した。
+
+## 過去の実測
+
+以下は各version当時の記録である。許可rootとGit worktree自動許可の仕様は0.5.0で廃止した。
 
 - `codex mcp get aishell`: `enabled: true`、`transport: stdio`
 - `codex mcp list`: `aishell` を有効なserverとして表示

@@ -1,5 +1,7 @@
 # AIShell開発利用adoption監査
 
+> 本書は調査・実測時点の記録。フォルダ登録と許可範囲に関する現行仕様は[ADR 0030](../docs/adr/0030-folder-registration-removal.md)を参照する。現在の操作手順はREADMEに従う。
+
 - 調査日: 2026-08-04
 - 対象期間: 2026-07-19〜2026-08-04
 - 対象: このMacのThroughlineに捕捉されたCodex／Claude session、`~/Developer`配下のgit repository、対話host設定、AIShell runtime

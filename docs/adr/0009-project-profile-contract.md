@@ -1,5 +1,7 @@
 # ADR 0009: project profile契約
 
+> 0.5.0で許可フォルダの登録・範囲制限を廃止した。本書の許可rootに関する契約は[ADR 0030](0030-folder-registration-removal.md)で置き換えられた。本文は当時の設計・検証記録として保持する。
+
 - Status: Accepted
 - Date: 2026-07-21
 - Lattice task: `ACE-021`

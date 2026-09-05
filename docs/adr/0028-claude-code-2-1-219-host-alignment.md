@@ -1,5 +1,7 @@
 # ADR 0028: Claude Code 2.1.219 に対するhost整合
 
+> 0.5.0で許可フォルダの登録・範囲制限を廃止した。本書の許可rootに関する契約は[ADR 0030](0030-folder-registration-removal.md)で置き換えられた。本文は当時の設計・検証記録として保持する。
+
 - Status: accepted
 - Date: 2026-07-24（決定1・3）、2026-07-25（決定2の実装と前提条件の追記）
 - 対象version: AIShell 0.4.1 (commit 3c51da8)

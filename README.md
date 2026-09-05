@@ -101,11 +101,7 @@ flowchart LR
 
 The global package adds `aishell-mcp` and `aishell-open` to `PATH`. `aishell-open` opens the bundled manager app through LaunchServices. The package runs no install script.
 
-Upgrading replaces the app bundle underneath any manager window left open, which breaks that window —
-it keeps holding a deleted bundle and silently loses every operation that opens a file panel. The
-window detects this itself and says so with a banner. When the new version sits at the same path, the
-banner restarts the window into it in one click; otherwise it asks for a quit and a fresh
-`aishell-open`. Verified against real `npm install -g` upgrades, not only simulated ones.
+更新時に管理アプリを開いたままだと、旧processが置換前のbundleを参照し続ける。管理アプリは差し替えを検知してバナーを表示する。同じパスに新版があればバナーから再起動し、移動・削除されていれば終了後に`aishell-open`で開き直す。接続済みのMCPも、hostで再接続すると新版へ切り替わる。
 
 ```sh
 npm install -g @quolu/aishell
@@ -167,8 +163,8 @@ The full profile includes file listing and reads, atomic SHA-256-guarded updates
 
 ## Current limitations
 
-- The stdio server handles one request at a time.
-- MCP cancellation and concurrent run polling are not implemented.
+- stdio requestは復旧操作・読み取り・実行の3系統で処理する。読み取りと復旧操作は長時間の実行中も応答するが、実行系requestは直列化する。
+- MCPの`notifications/cancelled`を受け付ける。管理対象processの明示的な停止は`run_observe`の`cancel`で行う。
 - A timeout terminates the directly owned process tree, but an allowed worker remains capable of open-world side effects before termination.
 - Initial workspace entries are a bounded preview; later deltas are cursor-paged.
 - Developer ID signing and notarization are not yet configured.
@@ -183,7 +179,7 @@ npm install -g @quolu/aishell@latest
 aishell-open
 ```
 
-`runtime_status` and `runtime_open_manager` are the recovery entrypoints for an
+`runtime_status` and `runtime_open_manager` are the recovery entrypoints for a
 paused runtime. Factory consumers call `factory_diagnostics`
 through the dedicated `AISHELL_TOOL_PROFILE=factory` MCP surface; its schema and
 privacy boundary are owned by [the product contract](https://github.com/kitepon/aishell/blob/main/docs/factory-diagnostics.md).
@@ -196,13 +192,28 @@ npm test
 npm run test:package
 git fetch origin
 npm run verify:release-commit
-npm publish --access public
+npm whoami
+npm publish --access public --browser=false
 ```
 
 The release gate rejects a dirty tree or a commit that has not landed on the
 default branch. After publishing, create the matching GitHub Release, reinstall
 `@quolu/aishell@latest`, and smoke MCP initialize plus `factory_diagnostics`.
 GitHub Releases are the public record of shipped versions.
+
+### 公開認証と導入確認
+
+`npm whoami`が認証エラーを返した場合は、対話端末で`npm login --registry=https://registry.npmjs.org/ --browser=false`を実行し、表示された新しいURLを利用するブラウザで開いて認証する。公開コマンドも対話端末で実行し、出力をファイルへリダイレクトしない。公開用の認証URLが表示された場合は、ログインとは別に認証する。URLが失効した場合はコマンドを再実行して新しいURLを使う。
+
+npmのログインsessionは2時間で失効し、公開時には二要素認証が適用される（[npm公式説明](https://github.blog/changelog/2025-12-09-npm-classic-tokens-revoked-session-based-auth-and-cli-token-management-now-available/)）。公開の成功後に、registryとグローバルインストールを確認する。
+
+```sh
+npm view @quolu/aishell dist-tags.latest
+npm install -g @quolu/aishell@latest
+npm ls -g @quolu/aishell --depth=0
+```
+
+MCPを再接続し、`initialize`のversion、`runtime_status`、事前登録のない対象フォルダの検索と実行を確認する。工場診断は別processを`AISHELL_TOOL_PROFILE=factory`で起動し、`AISHELL_CAPABILITY_SET`を設定せずに確認する。
 
 ## Development
 

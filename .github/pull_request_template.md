@@ -4,7 +4,7 @@ Describe the problem and the resulting behavior.
 
 ## Contract affected
 
-- [ ] Allowed roots / file identity / filesystem reconciliation
+- [ ] パス解決 / workspaceの束縛 / file identity / filesystem照合
 - [ ] Process lifecycle / worker execution
 - [ ] Artifact retention / freshness / pagination
 - [ ] MCP schema / tool surface

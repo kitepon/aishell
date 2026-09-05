@@ -103,10 +103,7 @@ flowchart LR
 
 global packageは`aishell-mcp`と`aishell-open`を`PATH`へ追加する。`aishell-open`は同梱された管理アプリをLaunchServicesで開く。install scriptは実行しない。
 
-upgradeは開いたままの管理アプリの足元でapp bundleを置き換えるため、その窓は壊れる。削除済みbundleを
-掴み続け、ファイル選択を伴う操作を無言で失う。窓自身がこれを検知してbannerで示す。新版が同じpathに
-在る場合はbannerの再起動1回で新版の窓へ移り、pathごと消えている場合は終了と`aishell-open`での開き直しを
-促す。実際の`npm install -g` upgradeで検証済みである。
+更新時に管理アプリを開いたままだと、旧processが置換前のbundleを参照し続ける。管理アプリは差し替えを検知してバナーを表示する。同じパスに新版があればバナーから再起動し、移動・削除されていれば終了後に`aishell-open`で開き直す。接続済みのMCPも、hostで再接続すると新版へ切り替わる。
 
 ```sh
 npm install -g @quolu/aishell
@@ -166,8 +163,8 @@ full profileにはfile一覧・read、SHA-256競合検出付きatomic update、c
 
 ## 現在の制限
 
-- stdio serverは1 requestずつ処理する。
-- MCP cancellationと並列run pollingは未実装。
+- stdio requestは復旧操作・読み取り・実行の3系統で処理する。読み取りと復旧操作は長時間の実行中も応答するが、実行系requestは直列化する。
+- MCPの`notifications/cancelled`を受け付ける。管理対象processの明示的な停止は`run_observe`の`cancel`で行う。
 - timeout時は直接所有するprocess treeを終了するが、終了までに許可workerがopen-worldな副作用を起こし得る。
 - 初回workspace entryはbounded previewで、後続deltaはcursor pageになる。
 - Developer ID署名とnotarizationは未設定。
@@ -194,12 +191,27 @@ npm test
 npm run test:package
 git fetch origin
 npm run verify:release-commit
-npm publish --access public
+npm whoami
+npm publish --access public --browser=false
 ```
 
 release gateはdirty treeと既定branchへ未着地のcommitを拒否する。publish後は対応する
 GitHub Releaseを作り、`@quolu/aishell@latest`を再installしてMCP initializeと
 `factory_diagnostics`をsmokeする。公開済みversionの正本はGitHub Releasesである。
+
+### 公開認証と導入確認
+
+`npm whoami`が認証エラーを返した場合は、対話端末で`npm login --registry=https://registry.npmjs.org/ --browser=false`を実行し、表示された新しいURLを利用するブラウザで開いて認証する。公開コマンドも対話端末で実行し、出力をファイルへリダイレクトしない。公開用の認証URLが表示された場合は、ログインとは別に認証する。URLが失効した場合はコマンドを再実行して新しいURLを使う。
+
+npmのログインsessionは2時間で失効し、公開時には二要素認証が適用される（[npm公式説明](https://github.blog/changelog/2025-12-09-npm-classic-tokens-revoked-session-based-auth-and-cli-token-management-now-available/)）。公開の成功後に、registryとグローバルインストールを確認する。
+
+```sh
+npm view @quolu/aishell dist-tags.latest
+npm install -g @quolu/aishell@latest
+npm ls -g @quolu/aishell --depth=0
+```
+
+MCPを再接続し、`initialize`のversion、`runtime_status`、事前登録のない対象フォルダの検索と実行を確認する。工場診断は別processを`AISHELL_TOOL_PROFILE=factory`で起動し、`AISHELL_CAPABILITY_SET`を設定せずに確認する。
 
 ## 開発検証
 

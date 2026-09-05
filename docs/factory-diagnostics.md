@@ -9,6 +9,8 @@ AIShell exposes the read-only MCP tool `factory_diagnostics` only through the de
 profile: its catalog contains this tool alone. The response schema is fixed at
 `aishell.native_factory_diagnostics.v1`.
 
+`factory`起動時は`AISHELL_CAPABILITY_SET`を設定しない。対話用の`expanded-v1`との併用は`FACTORY_PROFILE_CAPABILITY_SET_UNSUPPORTED`で起動失敗する。
+
 ## Public state
 
 - Product identifier and version
@@ -25,7 +27,7 @@ profile: its catalog contains this tool alone. The response schema is fixed at
 
 The diagnostic never exposes:
 
-- Allowed-root, Git-worktree, or effective-root paths
+- workspace、Git worktree、MCP起動ディレクトリのパス
 - Activity history, operation targets, or messages
 - File contents
 - Process executable paths, arguments, environment, stdout, or stderr

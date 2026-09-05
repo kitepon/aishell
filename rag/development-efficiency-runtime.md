@@ -6,6 +6,8 @@ confidence: 中〜高。外部仕様とローカル実装事実は高、製品�
 status: 初期5 tool実装・M1実測済み。3-task sentinelでtoken 25.86%減、平均wall 32.59%減
 ---
 
+> 本書は調査・実測時点の記録。フォルダ登録と許可範囲に関する現行仕様は[ADR 0030](../docs/adr/0030-folder-registration-removal.md)を参照する。現在の操作手順はREADMEに従う。
+
 # AIShell macOS直結・開発効率ランタイム調査
 
 ## 2026-07-19 実装・実測の還流
