@@ -21,7 +21,7 @@ state/schema migration、診断、復旧、更新、releaseを単独で所有し
 [dotagents](https://github.com/kitepon/dotagents)は公開contractを使って製品横断wireと
 互換性を統合しますが、AIShellの内部運用を制御しません。
 
-AIShellは許可root、file identity、filesystem照合state、直接起動したprocess、完全log、artifactを所有する。reasoning、thread、compaction、sub-agent、汎用terminalはAI hostの責務として残す。
+AIShellはfile identity、filesystem照合state、直接起動したprocess、完全log、artifactを所有する。reasoning、thread、compaction、sub-agent、汎用terminalはAI hostの責務として残す。
 
 ## 30秒で試す
 
@@ -33,7 +33,7 @@ aishell-open
 codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
 ```
 
-管理アプリでAIに許可するfolderを追加し、新しいCodex taskで次のように頼む。
+フォルダの事前登録は不要。新しいCodex taskで対象フォルダを指定して実行する。
 
 ```text
 初回workspace contextはworkspace_snapshotで取得して。focused testはrun_checkで実行し、
@@ -49,8 +49,8 @@ summaryから省略された証拠だけartifact_readで読んで。
 | `search_context` | 直接起動した`rg` workerによるbudget付き検索context |
 | `run_check` | 直接process実行、主要diagnostic、完全stdout/stderr artifact |
 | `artifact_read` | 保持artifactのrange、tail、pattern周辺read |
-| `runtime_status` | 未設定・停止中も含む許可root、停止、worktree、次操作の状態取得 |
-| `runtime_open_manager` | root追加またはAI操作再開のため管理アプリを開く |
+| `runtime_status` | 停止状態、相対パスの基準、次操作の状態取得 |
+| `runtime_open_manager` | AI操作の停止・再開のため管理アプリを開く |
 
 MCP serverへ`AISHELL_CAPABILITY_SET=expanded-v1`を設定すると、candidate surfaceへ明示opt-inできる。
 高密度development 9本と復旧control 2本を公開し、`run_observe`、`workspace_wait`、
@@ -79,7 +79,7 @@ statelessな連携では、モデルがworkspaceを何度もscanし、command出
 | Context | budget・cursor付きstructured result | stdoutを手動または暗黙に切り詰める |
 | Execution | executable URL、引数、cwd、lifecycleを分離 | shellが1本のcommand文字列を評価 |
 | Evidence | 完全stdout/stderrを期限付きhandleで保持 | response truncation時に証拠が失われやすい |
-| Scope | 人が管理する許可rootと明示的stop状態 | 周囲のshellとhost policyに依存 |
+| Scope | macOSのアクセス権と明示的stop状態 | 周囲のshellとhost policyに依存 |
 
 AIShellはsandboxではなく、任意code実行を安全化しない。process railの目的はtyped executionと観測可能なlifecycleを維持することであり、改名binaryや許可workerが起動する子processを阻止することではない。
 
@@ -89,7 +89,7 @@ AIShellはsandboxではなく、任意code実行を安全化しない。process 
 flowchart LR
     Host[AI host<br/>reasoning · threads · compaction] --> MCP[AIShellMCP<br/>MCP 2025-11-25]
     MCP --> Core[AIShellCore]
-    Core --> State[Allowed roots · file identity<br/>FSEvents + reconciliation]
+    Core --> State[File identity<br/>FSEvents + reconciliation]
     Core --> Process[Direct process lifecycle<br/>stdout · stderr · timeout]
     Core --> Evidence[Retained evidence<br/>artifacts · freshness]
     Process --> Workers[git · rg · compiler · tests]
@@ -127,7 +127,7 @@ open build/AIShell.app
 
 MCP実行ファイルは`build/AIShell.app/Contents/Helpers/aishell-mcp`へ同梱される。
 
-管理アプリの「許可rootを追加」でAIに操作させるfolderを選ぶ。許可済みGit repositoryの`.git/worktrees`へ正式登録され、双方の管理情報が一致するworktreeは自動的に実効rootへ加わる。
+フォルダ登録は不要。絶対パスは指定した場所を、相対パスと省略時はMCP起動ディレクトリを基準にする。Git worktreeも直接指定でき、旧設定の許可フォルダ一覧は無視される。
 
 ## 別のAI hostへ接続
 
@@ -181,7 +181,7 @@ npm install -g @quolu/aishell@latest
 aishell-open
 ```
 
-未設定・停止中の復旧入口は`runtime_status`と`runtime_open_manager`である。
+停止中の復旧入口は`runtime_status`と`runtime_open_manager`である。
 工場consumerは専用`AISHELL_TOOL_PROFILE=factory` MCP surfaceから
 `factory_diagnostics`を呼ぶ。schemaとprivacy境界は
 [製品側diagnostics contract](https://github.com/kitepon/aishell/blob/main/docs/factory-diagnostics.md)が正である。

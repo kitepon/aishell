@@ -16,7 +16,7 @@ final class MCPReservedPathWireTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: temporary) }
 
         let runtimeStore = RuntimeStore(baseDirectory: state)
-        try await runtimeStore.setAllowedRoot(root)
+        await runtimeStore.setWorkingDirectoryForTesting(root)
         let server = MCPServer(runtimeStore: runtimeStore, toolProfile: "full")
         let fixtures: [(name: String, arguments: [String: JSONValue])] = [
             ("files_read_text", ["path": .string(reservedFile.path)]),

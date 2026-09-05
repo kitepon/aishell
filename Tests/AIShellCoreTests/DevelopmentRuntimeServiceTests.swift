@@ -9,7 +9,7 @@ final class DevelopmentRuntimeServiceTests: XCTestCase {
         let allowed = fixture.base.appendingPathComponent("allowed", isDirectory: true)
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         let runtimeStore = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await runtimeStore.setAllowedRoot(allowed)
+        await runtimeStore.setWorkingDirectoryForTesting(allowed)
         let evidenceStore = EvidenceStore(baseDirectory: fixture.base.appendingPathComponent("evidence"))
         let service = DevelopmentRuntimeService(runtimeStore: runtimeStore, evidenceStore: evidenceStore)
 
@@ -38,7 +38,7 @@ final class DevelopmentRuntimeServiceTests: XCTestCase {
         let allowed = fixture.base.appendingPathComponent("allowed", isDirectory: true)
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         let runtimeStore = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await runtimeStore.setAllowedRoot(allowed)
+        await runtimeStore.setWorkingDirectoryForTesting(allowed)
         let evidenceStore = EvidenceStore(baseDirectory: fixture.base.appendingPathComponent("evidence"))
         let service = DevelopmentRuntimeService(runtimeStore: runtimeStore, evidenceStore: evidenceStore)
 
@@ -60,7 +60,7 @@ final class DevelopmentRuntimeServiceTests: XCTestCase {
         let allowed = fixture.base.appendingPathComponent("allowed", isDirectory: true)
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         let runtimeStore = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await runtimeStore.setAllowedRoot(allowed)
+        await runtimeStore.setWorkingDirectoryForTesting(allowed)
         let evidenceStore = EvidenceStore(baseDirectory: fixture.base.appendingPathComponent("evidence"))
         let service = DevelopmentRuntimeService(runtimeStore: runtimeStore, evidenceStore: evidenceStore)
 
@@ -93,7 +93,7 @@ final class RunCheckPipelineIntegrationTests: XCTestCase {
             encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let workspace = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let evidence = EvidenceStore(baseDirectory: fixture.base.appendingPathComponent("evidence"))
         let focused = FocusedCheckService()
@@ -444,7 +444,7 @@ private final class PipelineFixture {
         let manifestURL = root.appendingPathComponent("package.json")
         try Data("{}".utf8).write(to: manifestURL)
         let runtime = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime", isDirectory: true))
-        try await runtime.setAllowedRoot(root)
+        await runtime.setWorkingDirectoryForTesting(root)
         evidence = EvidenceStore(baseDirectory: fixture.base.appendingPathComponent("evidence", isDirectory: true))
         focused = FocusedCheckService()
         let cache = CheckFreshnessCache.inMemory()

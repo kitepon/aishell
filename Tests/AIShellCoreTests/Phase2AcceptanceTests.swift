@@ -29,7 +29,7 @@ final class Phase2AcceptanceTests: XCTestCase {
         try Self.run("/usr/bin/git", ["update-ref", "HEAD", commit], at: root)
 
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let before = try await runtime.snapshot(entryLimit: 500, contextBudget: 0)
 
@@ -184,7 +184,7 @@ final class Phase2AcceptanceTests: XCTestCase {
         try Self.run("/usr/bin/git", ["update-ref", "HEAD", commit], at: root)
 
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let before = try await runtime.snapshot(entryLimit: 100, contextBudget: 0)
         try "let value = \"needle\"\n".write(to: source, atomically: false, encoding: .utf8)
@@ -225,7 +225,7 @@ final class Phase2AcceptanceTests: XCTestCase {
         try "let value = 2\n".write(to: source, atomically: false, encoding: .utf8)
 
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let service = ContextCompilerService(runtimeStore: store, workspaceRuntime: runtime)
         let first = try await service.workspaceSnapshot(

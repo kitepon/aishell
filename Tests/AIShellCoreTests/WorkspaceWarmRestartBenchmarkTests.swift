@@ -17,7 +17,7 @@ final class WorkspaceWarmRestartBenchmarkTests: XCTestCase {
             )
         }
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
 
         let clock = ContinuousClock()
         let coldRuntime = WorkspaceStateRuntime(runtimeStore: store)

@@ -1,49 +1,20 @@
 import Foundation
 
 public struct RuntimeConfiguration: Codable, Equatable, Sendable {
-    public var allowedRootPaths: [String]
     public var isPaused: Bool
     public var updatedAt: Date
 
-    public init(
-        allowedRootPaths: [String] = [],
-        isPaused: Bool = false,
-        updatedAt: Date = Date()
-    ) {
-        self.allowedRootPaths = allowedRootPaths
+    public init(isPaused: Bool = false, updatedAt: Date = Date()) {
         self.isPaused = isPaused
         self.updatedAt = updatedAt
     }
 
-    public var primaryAllowedRootPath: String? {
-        allowedRootPaths.first
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case allowedRootPaths
-        case allowedRootPath
-        case isPaused
-        case updatedAt
-    }
+    private enum CodingKeys: String, CodingKey { case isPaused, updatedAt }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let paths = try container.decodeIfPresent([String].self, forKey: .allowedRootPaths) {
-            allowedRootPaths = paths
-        } else if let legacyPath = try container.decodeIfPresent(String.self, forKey: .allowedRootPath) {
-            allowedRootPaths = [legacyPath]
-        } else {
-            allowedRootPaths = []
-        }
         isPaused = try container.decodeIfPresent(Bool.self, forKey: .isPaused) ?? false
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(allowedRootPaths, forKey: .allowedRootPaths)
-        try container.encode(isPaused, forKey: .isPaused)
-        try container.encode(updatedAt, forKey: .updatedAt)
     }
 }
 
@@ -396,9 +367,8 @@ public struct InstalledApplicationInfo: Codable, Equatable, Sendable {
 }
 
 public enum AIShellError: LocalizedError, Equatable, Sendable {
-    case notConfigured
     case paused
-    case outsideAllowedRoot(String)
+    case outsideWorkspace(String)
     case invalidPath(String)
     case reservedPath(String)
     case itemAlreadyExists(String)
@@ -425,12 +395,10 @@ public enum AIShellError: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .notConfigured:
-            "許可rootがありません。runtime_open_managerでAIShellを開き、操作対象フォルダを追加してください。"
         case .paused:
             "AI操作は停止中です。runtime_open_managerでAIShellを開き、管理画面で再開してください。"
-        case let .outsideAllowedRoot(path):
-            "許可root外のため操作できません: \(path)。runtime_open_managerで対象rootを追加してください。"
+        case let .outsideWorkspace(path):
+            "指定したworkspaceの範囲外です: \(path)"
         case let .invalidPath(path):
             "パスが不正です: \(path)"
         case let .reservedPath(path):

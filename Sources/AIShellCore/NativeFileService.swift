@@ -14,7 +14,7 @@ public actor NativeFileService {
         try await audited(operation: "files.list", target: path ?? ".") {
             let resolver = try await activeResolver()
             let directory = try resolver.resolveExisting(path)
-            try ReservedNamespacePolicy.requirePublicPath(directory, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(directory, under: resolver.namespaceRoots)
             let keys: Set<URLResourceKey> = [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
             let urls = try FileManager.default.contentsOfDirectory(
                 at: directory,
@@ -23,7 +23,7 @@ public actor NativeFileService {
             )
 
             return try urls
-                .filter { !ReservedNamespacePolicy.contains(url: $0, under: resolver.rootURLs) }
+                .filter { !ReservedNamespacePolicy.contains(url: $0, under: resolver.namespaceRoots) }
                 .map { try fileEntry(for: $0, keys: keys) }
                 .sorted {
                     if $0.isDirectory != $1.isDirectory { return $0.isDirectory }
@@ -44,7 +44,7 @@ public actor NativeFileService {
         return try await audited(operation: "files.search", target: path ?? ".") {
             let resolver = try await activeResolver()
             let directory = try resolver.resolveExisting(path)
-            try ReservedNamespacePolicy.requirePublicPath(directory, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(directory, under: resolver.namespaceRoots)
             let cappedLimit = min(max(limit, 1), 500)
             return try searchSynchronously(query: query, directory: directory, limit: cappedLimit)
         }
@@ -54,7 +54,7 @@ public actor NativeFileService {
         try await audited(operation: "files.readText", target: path) {
             let resolver = try await activeResolver()
             let url = try resolver.resolveExisting(path)
-            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.namespaceRoots)
             let values = try url.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
             guard values.isDirectory != true else {
                 throw AIShellError.invalidPath(path)
@@ -75,7 +75,7 @@ public actor NativeFileService {
         try await audited(operation: "files.stat", target: path) {
             let resolver = try await activeResolver()
             let url = try resolver.resolveExisting(path)
-            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.namespaceRoots)
             return try fileStat(for: url, includeHash: includeHash)
         }
     }
@@ -88,7 +88,7 @@ public actor NativeFileService {
         try await audited(operation: "files.tree", target: path ?? ".") {
             let resolver = try await activeResolver()
             let directory = try resolver.resolveExisting(path)
-            try ReservedNamespacePolicy.requirePublicPath(directory, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(directory, under: resolver.namespaceRoots)
             let cappedDepth = min(max(maxDepth, 1), 20)
             let cappedLimit = min(max(limit, 1), 2_000)
             return try treeSynchronously(
@@ -107,7 +107,7 @@ public actor NativeFileService {
         try await audited(operation: "files.writeText", target: path) {
             let resolver = try await activeResolver()
             let url = try resolver.resolveDestination(path)
-            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.namespaceRoots)
             let exists = FileManager.default.fileExists(atPath: url.path)
 
             if exists {
@@ -145,7 +145,7 @@ public actor NativeFileService {
         return try await audited(operation: "files.replaceText", target: path) {
             let resolver = try await activeResolver()
             let url = try resolver.resolveExisting(path)
-            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.namespaceRoots)
             let original = try readTextSynchronously(url: url)
             let occurrenceCount = original.components(separatedBy: oldText).count - 1
 
@@ -178,7 +178,7 @@ public actor NativeFileService {
         try await audited(operation: "files.createDirectory", target: path) {
             let resolver = try await activeResolver()
             let url = try resolver.resolveDestination(path)
-            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.namespaceRoots)
             guard !FileManager.default.fileExists(atPath: url.path) else {
                 throw AIShellError.itemAlreadyExists(url.path)
             }
@@ -192,7 +192,7 @@ public actor NativeFileService {
         try await audited(operation: "files.createText", target: path) {
             let resolver = try await activeResolver()
             let url = try resolver.resolveDestination(path)
-            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.namespaceRoots)
             guard !FileManager.default.fileExists(atPath: url.path) else {
                 throw AIShellError.itemAlreadyExists(url.path)
             }
@@ -208,8 +208,8 @@ public actor NativeFileService {
             let resolver = try await activeResolver()
             let sourceURL = try resolver.resolveExisting(source)
             let destinationURL = try resolver.resolveDestination(destination)
-            try ReservedNamespacePolicy.requirePublicPath(sourceURL, under: resolver.rootURLs)
-            try ReservedNamespacePolicy.requirePublicPath(destinationURL, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(sourceURL, under: resolver.namespaceRoots)
+            try ReservedNamespacePolicy.requirePublicPath(destinationURL, under: resolver.namespaceRoots)
             guard !FileManager.default.fileExists(atPath: destinationURL.path) else {
                 throw AIShellError.itemAlreadyExists(destinationURL.path)
             }
@@ -224,8 +224,8 @@ public actor NativeFileService {
             let resolver = try await activeResolver()
             let sourceURL = try resolver.resolveExisting(source)
             let destinationURL = try resolver.resolveDestination(destination)
-            try ReservedNamespacePolicy.requirePublicPath(sourceURL, under: resolver.rootURLs)
-            try ReservedNamespacePolicy.requirePublicPath(destinationURL, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(sourceURL, under: resolver.namespaceRoots)
+            try ReservedNamespacePolicy.requirePublicPath(destinationURL, under: resolver.namespaceRoots)
             guard !FileManager.default.fileExists(atPath: destinationURL.path) else {
                 throw AIShellError.itemAlreadyExists(destinationURL.path)
             }
@@ -249,8 +249,8 @@ public actor NativeFileService {
             let destinationURL = try resolver.resolveDestination(
                 sourceURL.deletingLastPathComponent().appendingPathComponent(newName).path
             )
-            try ReservedNamespacePolicy.requirePublicPath(sourceURL, under: resolver.rootURLs)
-            try ReservedNamespacePolicy.requirePublicPath(destinationURL, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(sourceURL, under: resolver.namespaceRoots)
+            try ReservedNamespacePolicy.requirePublicPath(destinationURL, under: resolver.namespaceRoots)
             guard !FileManager.default.fileExists(atPath: destinationURL.path) else {
                 throw AIShellError.itemAlreadyExists(destinationURL.path)
             }
@@ -264,10 +264,7 @@ public actor NativeFileService {
         try await audited(operation: "files.trash", target: path) {
             let resolver = try await activeResolver()
             let url = try resolver.resolveExisting(path)
-            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.rootURLs)
-            guard !resolver.isAllowedRoot(url) else {
-                throw AIShellError.invalidArgument("許可フォルダ自体はTrashへ移動できません。")
-            }
+            try ReservedNamespacePolicy.requirePublicPath(url, under: resolver.namespaceRoots)
 
             var resultingURL: NSURL?
             try FileManager.default.trashItem(at: url, resultingItemURL: &resultingURL)
@@ -275,11 +272,10 @@ public actor NativeFileService {
         }
     }
 
-    private func activeResolver() async throws -> AllowedPathResolver {
+    private func activeResolver() async throws -> PathResolver {
         let configuration = try await store.loadConfiguration()
         guard !configuration.isPaused else { throw AIShellError.paused }
-        guard !configuration.allowedRootPaths.isEmpty else { throw AIShellError.notConfigured }
-        return try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
+        return await store.pathResolver()
     }
 
     private func fileEntry(

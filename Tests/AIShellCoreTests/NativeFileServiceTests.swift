@@ -2,7 +2,7 @@ import XCTest
 @testable import AIShellCore
 
 final class NativeFileServiceTests: XCTestCase {
-    func testNativeFileWorkflowStaysInsideAllowedRoot() async throws {
+    func testNativeFileWorkflowUsesWorkingDirectory() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let runtime = fixture.base.appendingPathComponent("runtime", isDirectory: true)
@@ -10,7 +10,7 @@ final class NativeFileServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
 
         let store = RuntimeStore(baseDirectory: runtime)
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeFileService(store: store)
 
         let folder = try await service.createDirectory(path: "notes/inbox")
@@ -58,7 +58,7 @@ final class NativeFileServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
 
         let store = RuntimeStore(baseDirectory: runtime)
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         try await store.setPaused(true)
         let service = NativeFileService(store: store)
 
@@ -70,7 +70,7 @@ final class NativeFileServiceTests: XCTestCase {
         }
     }
 
-    func testAbsolutePathCanTargetSecondAllowedRoot() async throws {
+    func testAbsolutePathWorksWithoutConfiguration() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let runtime = fixture.base.appendingPathComponent("runtime", isDirectory: true)
@@ -79,7 +79,6 @@ final class NativeFileServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: runtime)
-        try await store.setAllowedRoots([first, second])
         let service = NativeFileService(store: store)
 
         let created = try await service.createTextFile(
@@ -99,7 +98,7 @@ final class NativeFileServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
 
         let store = RuntimeStore(baseDirectory: runtime)
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeFileService(store: store)
         _ = try await service.createTextFile(path: "stable.txt", content: "first")
 
@@ -126,7 +125,7 @@ final class NativeFileServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
 
         let store = RuntimeStore(baseDirectory: runtime)
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeFileService(store: store)
         _ = try await service.createDirectory(path: "Sources/Feature")
         _ = try await service.createTextFile(

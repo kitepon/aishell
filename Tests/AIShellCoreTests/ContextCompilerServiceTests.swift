@@ -16,7 +16,7 @@ final class ContextCompilerServiceTests: XCTestCase {
         try Self.runGit(["commit", "-m", "fixture"], at: root)
         try "let value = 2\n".write(to: source, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let service = ContextCompilerService(runtimeStore: store, workspaceRuntime: runtime)
 
@@ -54,7 +54,7 @@ final class ContextCompilerServiceTests: XCTestCase {
         try Self.runGit(["commit", "-m", "fixture"], at: root)
         try "let value = 2\n".write(to: source, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let service = ContextCompilerService(runtimeStore: store, workspaceRuntime: runtime)
 
@@ -91,7 +91,7 @@ final class ContextCompilerServiceTests: XCTestCase {
             to: root.appendingPathComponent("Cargo.toml"), atomically: false, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let profiles = ProjectProfileService(
             runtimeStore: store,
@@ -129,7 +129,7 @@ final class ContextCompilerServiceTests: XCTestCase {
             to: nested.appendingPathComponent("Cargo.toml"), atomically: false, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let service = ContextCompilerService(runtimeStore: store, workspaceRuntime: runtime)
 
@@ -181,7 +181,7 @@ final class ContextCompilerServiceTests: XCTestCase {
         ])
         """.write(to: root.appendingPathComponent("Package.swift"), atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let evidence = EvidenceStore(baseDirectory: fixture.base.appendingPathComponent("evidence"))
         let service = ContextCompilerService(
@@ -220,7 +220,7 @@ final class ContextCompilerServiceTests: XCTestCase {
         let file = root.appendingPathComponent("Find.swift")
         try "old value\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
         try "needle value\n".write(to: file, atomically: false, encoding: .utf8)
@@ -255,7 +255,7 @@ final class ContextCompilerServiceTests: XCTestCase {
             to: root.appendingPathComponent("Second.swift"), atomically: true, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let service = ContextCompilerService(runtimeStore: store)
 
         let first = try await service.readContext(
@@ -285,7 +285,7 @@ final class ContextCompilerServiceTests: XCTestCase {
             to: root.appendingPathComponent("Find.swift"), atomically: true, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let service = ContextCompilerService(runtimeStore: store)
 
         let result = try await service.searchContext(
@@ -310,7 +310,7 @@ final class ContextCompilerServiceTests: XCTestCase {
             to: file, atomically: true, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let service = ContextCompilerService(runtimeStore: store)
 
         let first = try await service.searchContext(query: "needle", maxResults: 1)
@@ -341,7 +341,7 @@ final class ContextCompilerServiceTests: XCTestCase {
         let file = root.appendingPathComponent("Changing.swift")
         try "abcdefghij\n".write(to: file, atomically: true, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let service = ContextCompilerService(runtimeStore: store)
 
         let first = try await service.readContext(targets: ["Changing.swift"], byteBudget: 5)
@@ -385,7 +385,7 @@ final class ContextCompilerServiceTests: XCTestCase {
             to: root.appendingPathComponent("Japanese.txt"), atomically: true, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let service = ContextCompilerService(runtimeStore: store)
 
         let first = try await service.readContext(targets: ["Japanese.txt"], byteBudget: 5)

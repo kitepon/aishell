@@ -298,7 +298,7 @@ public actor WorkspaceStateRuntime {
         guard try requested.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else {
             throw AIShellError.invalidPath(requested.path)
         }
-        let owner = try EffectiveRootProjectCatalog(rootURLs: resolver.rootURLs).resolveOwner(for: requested)
+        let owner = try EffectiveRootProjectCatalog(rootURLs: [requested]).resolveOwner(for: requested)
         let root = owner.root
         let key = root.path
         if let existing = states[key], existing.rootIdentity != owner.rootIdentity {
@@ -400,7 +400,7 @@ public actor WorkspaceStateRuntime {
         let ownerRoot = try resolver.resolveExisting(ownerRootPath)
         let projectRoot = try resolver.resolveExisting(projectRootPath)
         guard Self.contains(projectRoot.path, in: ownerRoot.path) else {
-            throw AIShellError.outsideAllowedRoot(projectRoot.path)
+            throw AIShellError.outsideWorkspace(projectRoot.path)
         }
         guard try Self.fileIdentity(projectRoot) == expectedProjectRootIdentity else {
             throw WorkspaceRelevantInputObservationError.projectRootIdentityChanged
@@ -480,7 +480,7 @@ public actor WorkspaceStateRuntime {
             throw WorkspaceRelevantInputObservationError.symlinkEncountered(relative)
         }
         guard contains(url.standardizedFileURL.path, in: projectRoot.path) else {
-            throw AIShellError.outsideAllowedRoot(url.path)
+            throw AIShellError.outsideWorkspace(url.path)
         }
         let identity = "\(info.st_dev):\(info.st_ino)"
         let mode = String(info.st_mode, radix: 8)
@@ -595,7 +595,7 @@ public actor WorkspaceStateRuntime {
         guard try requested.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else {
             throw AIShellError.invalidPath(requested.path)
         }
-        let owner = try EffectiveRootProjectCatalog(rootURLs: resolver.rootURLs).resolveOwner(for: requested)
+        let owner = try EffectiveRootProjectCatalog(rootURLs: [requested]).resolveOwner(for: requested)
         let root = owner.root
         let key = root.path
         if states[key] == nil {
@@ -732,7 +732,7 @@ public actor WorkspaceStateRuntime {
                   mutation.previousPath.map({ !ReservedNamespacePolicy.contains(relativePath: $0) }) ?? true
             else { throw AIShellError.reservedPath(mutation.path) }
             let absolute = root.appendingPathComponent(mutation.path).standardizedFileURL
-            try ReservedNamespacePolicy.requirePublicPath(absolute, under: resolver.rootURLs)
+            try ReservedNamespacePolicy.requirePublicPath(absolute, under: resolver.namespaceRoots)
             let oldPath = mutation.previousPath
             let measured = try currentEntry(url: absolute, root: root)
             let change: WorkspaceChange
@@ -1201,10 +1201,10 @@ public actor WorkspaceStateRuntime {
         )
     }
 
-    private func activeResolver() async throws -> AllowedPathResolver {
+    private func activeResolver() async throws -> PathResolver {
         let configuration = try await runtimeStore.loadConfiguration()
         guard !configuration.isPaused else { throw AIShellError.paused }
-        return try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
+        return await runtimeStore.pathResolver()
     }
 
     private func cursor(for state: RootState, sequence: UInt64? = nil) -> String {

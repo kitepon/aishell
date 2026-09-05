@@ -241,7 +241,7 @@ private final class ResolutionFixture: @unchecked Sendable {
     }
 
     func context() async throws -> Context {
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         if let completeContract {
             await profiles.setInputContractForTests(ecosystem: "npm", kind: "test", contract: completeContract)
         }

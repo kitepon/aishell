@@ -13,7 +13,6 @@ final class MCPApplyChangeSetWireTests: XCTestCase {
         try Data("before".utf8).write(to: source)
         let stateBase = temporary.appendingPathComponent("state", isDirectory: true)
         let store = RuntimeStore(baseDirectory: stateBase)
-        try await store.setAllowedRoot(root)
         let workspaceRuntime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let development = DevelopmentRuntimeService(runtimeStore: store, workspaceRuntime: workspaceRuntime)
         let server = MCPServer(

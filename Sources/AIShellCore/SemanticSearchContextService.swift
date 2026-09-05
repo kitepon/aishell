@@ -88,7 +88,8 @@ public actor SemanticSearchContextService {
         }
 
         let configuration = try await runtimeStore.loadConfiguration()
-        let resolver = try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
+        guard !configuration.isPaused else { throw AIShellError.paused }
+        let resolver = await runtimeStore.pathResolver()
         let root = try resolver.resolveExisting(request.path)
         let environment = try await workspaceRuntime.searchContextObservation(
             path: root.path,

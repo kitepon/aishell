@@ -11,7 +11,9 @@ AIShellのnorth starは、**macOSの生きた状態を直接所有し、その�
 3. wall time / model・tool往復
 4. compatibility
 
-Direct OSは交換可能なbackendではなく、効率化を生む設計上の根である。AIShellがfile identity、OS変更の観測・照合state、process lifecycle、worktree、artifactをモデルより下で所有する。安全性は現行の許可root、停止、Trash、SHA競合検出を床として維持するが、現在の最適化対象ではない。
+Direct OSは交換可能なbackendではなく、効率化を生む設計上の根である。AIShellがfile identity、OS変更の観測・照合state、process lifecycle、worktree、artifactをモデルより下で所有する。安全性は停止、Trash、SHA競合検出を床として維持するが、現在の最適化対象ではない。
+
+操作対象フォルダの事前登録や許可一覧は持たない。絶対パスはその対象、相対パスと省略時はMCP起動ディレクトリを基準にする。
 
 新機能は、OS状態を直接観測・保持して再scan、再読、再実行、model往復を減らせる場合だけ採用する。OS状態と無関係な便利toolや薄いwrapperを詰め込まない。
 
@@ -31,7 +33,7 @@ Direct OSは交換可能なbackendではなく、効率化を生む設計上の�
   update、releaseできる契約を本repo内に持つ。dotagentsは製品横断wireと互換projectionを
   統合するだけで、AIShellの内部状態や運用判断を制御しない。
 - AI hostがreasoning、thread、compaction、sub-agent、汎用PTYを所有する。AIShellで再実装しない。
-- AIShellは許可root、file identity、FSEvents観測とfilesystem照合によるdelta、直接起動したprocess、完全log/artifact、freshnessを所有する。FSEvents単独を完全な履歴とは見なさない。
+- AIShellはfile identity、FSEvents観測とfilesystem照合によるdelta、直接起動したprocess、完全log/artifact、freshnessを所有する。FSEvents単独を完全な履歴とは見なさない。
 - Git、`rg`、compiler、test runner、SourceKit-LSPはAIShellが直接起動・監視するworkerとして再利用する。状態の所有者や公開toolの寄せ集めにはしない。
 - shell文字列を評価せず、executable URL、引数、working directoryを分離したままprocessを起動する。shell群、`env`、`osascript`のbasename拒否は汎用shell wrapperへ退行させない製品上の設計レールであり、security boundaryではない。許可workerの子processや改名binaryまで阻止するものとして扱わない。
 - `AIShellCore`へdomain機能、`AIShellMCP`へprotocol変換を置く。MCP handlerへ開発ロジックを埋め込まない。

@@ -267,7 +267,7 @@ final class SearchContextServiceTests: XCTestCase {
         }
         let store = EvidenceStore(baseDirectory: fixture.evidence)
         let service = try SearchContextService(
-            resolver: AllowedPathResolver(rootPath: fixture.root.path),
+            resolver: PathResolver(baseDirectory: URL(fileURLWithPath: fixture.root.path)),
             evidenceStore: store,
             tokenSecret: Data(repeating: 9, count: 32)
         )
@@ -321,7 +321,7 @@ private struct SearchFixture {
 
     func service(tokenSecret: Data = Data(repeating: 3, count: 32)) throws -> SearchContextService {
         try SearchContextService(
-            resolver: AllowedPathResolver(rootPath: root.path),
+            resolver: PathResolver(baseDirectory: URL(fileURLWithPath: root.path)),
             evidenceStore: EvidenceStore(baseDirectory: evidence),
             tokenSecret: tokenSecret
         )

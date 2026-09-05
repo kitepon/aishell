@@ -427,13 +427,12 @@ public actor ProjectProfileService {
     ) async throws -> ProjectProfileCatalogResult {
         let configuration = try await runtimeStore.loadConfiguration()
         guard !configuration.isPaused else { throw AIShellError.paused }
-        guard !configuration.allowedRootPaths.isEmpty else { throw AIShellError.notConfigured }
         let currentCursor = try Self.parseObservationCursor(observedCursor)
-        let resolver = try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
+        let resolver = await runtimeStore.pathResolver()
         try loadCacheIfNeeded()
         let requested = try resolver.resolveExisting(rootPath)
-        let ownerRoot = try Self.canonicalURL(ownerRoot(for: requested, roots: resolver.rootURLs))
-        let policyDigest = Self.digestStrings(configuration.allowedRootPaths.sorted())
+        let ownerRoot = try Self.canonicalURL(requested)
+        let policyDigest = Self.digestStrings(["unrestricted-v1"])
         let catalogKey = try Self.digestJSON([
             "owner_root_identity": try Self.fileIdentity(ownerRoot),
             "owner_root_path": ownerRoot.path,
@@ -1277,15 +1276,6 @@ public actor ProjectProfileService {
         )
     }
 
-    private func ownerRoot(for requested: URL, roots: [URL]) throws -> URL {
-        let candidates = roots.filter { requested.path == $0.path || requested.path.hasPrefix($0.path + "/") }
-        guard let selected = candidates.sorted(by: {
-            let lhs = $0.pathComponents.count, rhs = $1.pathComponents.count
-            return lhs == rhs ? $0.path < $1.path : lhs > rhs
-        }).first else { throw AIShellError.outsideAllowedRoot(requested.path) }
-        return selected
-    }
-
     private func copy(
         _ profile: ProjectProfile,
         freshness: ProjectProfileFreshness,
@@ -1690,7 +1680,7 @@ public actor ProjectProfileService {
         if let execution = error as? ProviderExecutionError {
             switch execution {
             case .memberOutsideAllowedRoot:
-                return ("PROJECT_MEMBER_OUTSIDE_ALLOWED_ROOT", true, nil, nil)
+                return ("PROJECT_MEMBER_OUTSIDE_WORKSPACE", true, nil, nil)
             case .duplicateWorkspaceOwner:
                 return ("PROJECT_MEMBER_DUPLICATE_OWNER", true, nil, nil)
             case .lockfileInvalid(let path):

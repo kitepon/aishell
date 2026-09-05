@@ -284,7 +284,7 @@ final class ProjectProfileServiceTests: XCTestCase {
         let root = try workspace(in: fixture)
         try writePackage(at: root, name: "sample", scripts: [:])
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let snapshot = try await runtime.snapshot(path: root.path)
         let service = ProjectProfileService(runtimeStore: store, workspaceRuntime: runtime)
@@ -300,7 +300,7 @@ final class ProjectProfileServiceTests: XCTestCase {
         let root = try workspace(in: fixture)
         try writePackage(at: root, name: "sample", scripts: [:])
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false, journalLimit: 1)
         let first = try await runtime.snapshot(path: root.path)
         let service = ProjectProfileService(runtimeStore: store, workspaceRuntime: runtime)
@@ -360,7 +360,7 @@ final class ProjectProfileServiceTests: XCTestCase {
         let service = try await makeService(root: root, fixture: fixture)
 
         let result = try await service.catalog(rootPath: root.path, observedCursor: cursor(1))
-        XCTAssertEqual(try profile(root: "escaped", in: result).diagnostics.first?.code, "PROJECT_MEMBER_OUTSIDE_ALLOWED_ROOT")
+        XCTAssertEqual(try profile(root: "escaped", in: result).diagnostics.first?.code, "PROJECT_MEMBER_OUTSIDE_WORKSPACE")
         let lockedProfile = try profile(root: "locked", in: result)
         XCTAssertEqual(lockedProfile.diagnostics.first?.code, "PROJECT_MANIFEST_INVALID")
         XCTAssertEqual(lockedProfile.diagnostics.first?.path, "locked/package-lock.json")
@@ -390,7 +390,7 @@ final class ProjectProfileServiceTests: XCTestCase {
         let result = try await service.catalog(rootPath: root.path, observedCursor: cursor(1))
         let profile = try profile(root: "", in: result)
         XCTAssertEqual(profile.status, .invalid)
-        XCTAssertEqual(profile.diagnostics.first?.code, "PROJECT_MEMBER_OUTSIDE_ALLOWED_ROOT")
+        XCTAssertEqual(profile.diagnostics.first?.code, "PROJECT_MEMBER_OUTSIDE_WORKSPACE")
     }
 
     func testWorkspaceSymlinkValidationStillExcludesNodeModules() async throws {
@@ -417,7 +417,7 @@ final class ProjectProfileServiceTests: XCTestCase {
         let root = try workspace(in: fixture)
         try writePackage(at: root, name: "sample", scripts: [:])
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let service = ProjectProfileService(runtimeStore: store, evidenceRetention: 1)
         _ = try await service.catalog(rootPath: root.path, observedCursor: cursor(1))
         try await Task.sleep(for: .milliseconds(1_100))
@@ -467,7 +467,7 @@ final class ProjectProfileServiceTests: XCTestCase {
         let root = try workspace(in: fixture)
         try writePackage(at: root, name: "sample", scripts: ["test": "node --test"])
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let service = ProjectProfileService(runtimeStore: store, workspaceRuntime: runtime)
         let snapshot = try await runtime.snapshot()
@@ -715,7 +715,7 @@ final class ProjectProfileServiceTests: XCTestCase {
 
     private func makeService(root: URL, fixture: TemporaryFixture) async throws -> ProjectProfileService {
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         return ProjectProfileService(runtimeStore: store)
     }
 

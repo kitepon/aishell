@@ -512,10 +512,9 @@ public actor ContextCompilerService {
     private func refreshProvidersIfNeeded() async throws {
         let configuration = try await runtimeStore.loadConfiguration()
         guard !configuration.isPaused else { throw AIShellError.paused }
-        guard !configuration.allowedRootPaths.isEmpty else { throw AIShellError.notConfigured }
-        let binding = Self.digestStrings(configuration.allowedRootPaths)
+        let resolver = await runtimeStore.pathResolver()
+        let binding = Self.digestStrings([resolver.rootURL.path, "unrestricted-v1"])
         guard providerBinding != binding else { return }
-        let resolver = try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
         gitProvider = GitContextProvider(resolver: resolver, evidenceStore: evidenceStore)
         searchProvider = try SearchContextService(resolver: resolver, evidenceStore: evidenceStore)
         providerBinding = binding
@@ -784,10 +783,10 @@ public actor ContextCompilerService {
         return "\(device):\(inode)"
     }
 
-    private func activeResolver() async throws -> AllowedPathResolver {
+    private func activeResolver() async throws -> PathResolver {
         let configuration = try await runtimeStore.loadConfiguration()
         guard !configuration.isPaused else { throw AIShellError.paused }
-        return try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
+        return await runtimeStore.pathResolver()
     }
 
     private func parseContinuation(
@@ -816,8 +815,8 @@ public actor ContextCompilerService {
         "read2:\(signature):\(index):\(offset):\(sha256 ?? "")"
     }
 
-    private func displayPath(url: URL, resolver: AllowedPathResolver) -> String {
-        for root in resolver.rootURLs where url.path.hasPrefix(root.path + "/") {
+    private func displayPath(url: URL, resolver: PathResolver) -> String {
+        for root in [resolver.rootURL] where url.path.hasPrefix(root.path + "/") {
             return String(url.path.dropFirst(root.path.count + 1))
         }
         return url.path

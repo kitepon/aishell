@@ -329,7 +329,7 @@ public actor SearchContextService {
         let stderrDigest: String
     }
 
-    private let resolver: AllowedPathResolver
+    private let resolver: PathResolver
     private let evidenceStore: EvidenceStore
     private let executable: URL
     private let retentionSeconds: TimeInterval
@@ -338,7 +338,7 @@ public actor SearchContextService {
     private var snapshots: [String: Snapshot] = [:]
 
     public init(
-        resolver: AllowedPathResolver,
+        resolver: PathResolver,
         evidenceStore: EvidenceStore,
         rgExecutable: URL? = nil,
         retentionSeconds: TimeInterval = EvidenceStore.defaultRetentionSeconds,
@@ -1020,14 +1020,8 @@ public actor SearchContextService {
     }
 
     private func effectiveRoot(containing scope: URL) throws -> URL {
-        let matches = resolver.rootURLs.filter { isContained(scope, in: $0) }
-        guard let root = matches.sorted(by: { lhs, rhs in
-            if lhs.pathComponents.count != rhs.pathComponents.count {
-                return lhs.pathComponents.count > rhs.pathComponents.count
-            }
-            return Self.utf8Less(lhs.path, rhs.path)
-        }).first else { throw SearchContextServiceError.invalidArgument("search scope has no effective root") }
-        return root
+        let values = try scope.resourceValues(forKeys: [.isDirectoryKey])
+        return values.isDirectory == true ? scope : scope.deletingLastPathComponent()
     }
 
     private func selectedCaseMode(for query: SearchContextQueryV2) -> SearchContextCaseMode {

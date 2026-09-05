@@ -21,7 +21,7 @@ final class MCPContextV2WireTests: XCTestCase {
         try Self.git(["commit", "-am", "head"], root)
         try Data("dirty\n".utf8).write(to: root.appendingPathComponent("File.txt"))
         let store = RuntimeStore(baseDirectory: temporary.appendingPathComponent("state"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let server = MCPServer(runtimeStore: store)
 
         let response = await server.callTool(id: .number(1), params: .object([
@@ -52,7 +52,7 @@ final class MCPContextV2WireTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporary) }
         let store = RuntimeStore(baseDirectory: temporary.appendingPathComponent("state"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let server = MCPServer(runtimeStore: store, capabilitySet: "expanded-v1")
 
         let snapshot = await server.callTool(id: .number(1), params: .object([
@@ -88,7 +88,7 @@ final class MCPContextV2WireTests: XCTestCase {
             .write(to: nested.appendingPathComponent("Cargo.toml"))
         defer { try? FileManager.default.removeItem(at: temporary) }
         let store = RuntimeStore(baseDirectory: temporary.appendingPathComponent("state"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let server = MCPServer(runtimeStore: store)
 
         let first = await server.callTool(id: .number(1), params: .object([
@@ -135,7 +135,7 @@ final class MCPContextV2WireTests: XCTestCase {
         try Data("needle\n".utf8).write(to: root.appendingPathComponent("Source.swift"))
         defer { try? FileManager.default.removeItem(at: temporary) }
         let store = RuntimeStore(baseDirectory: temporary.appendingPathComponent("state"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let server = MCPServer(runtimeStore: store)
 
         let workspace = await server.callTool(id: .number(1), params: .object([
@@ -243,7 +243,7 @@ final class MCPContextV2WireTests: XCTestCase {
         try Data("func caller() { target() }\n".utf8).write(to: root.appendingPathComponent("src/b.swift"))
         defer { try? FileManager.default.removeItem(at: temporary) }
         let store = RuntimeStore(baseDirectory: temporary.appendingPathComponent("state"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let server = MCPServer(runtimeStore: store, capabilitySet: "expanded-v1")
         let snapshot = await server.callTool(id: .number(1), params: .object([
             "name": .string("workspace_snapshot"),

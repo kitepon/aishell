@@ -162,7 +162,7 @@ private final class ProviderFixture: @unchecked Sendable {
         root = base.appendingPathComponent("root", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         store = RuntimeStore(baseDirectory: base.appendingPathComponent("state", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         cursor = try await runtime.snapshot(path: root.path).cursor
     }

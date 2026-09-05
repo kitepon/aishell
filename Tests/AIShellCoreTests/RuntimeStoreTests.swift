@@ -12,7 +12,7 @@ final class RuntimeStoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: runtime)
 
-        try await store.setAllowedRoots([allowed, second, allowed])
+        await store.setWorkingDirectoryForTesting(allowed)
         try await store.setPaused(true)
         try await store.appendActivity(OperationRecord(
             operation: "first",
@@ -28,42 +28,26 @@ final class RuntimeStoreTests: XCTestCase {
         ))
 
         let configuration = try await store.loadConfiguration()
-        XCTAssertEqual(configuration.allowedRootPaths, [
-            allowed.resolvingSymlinksInPath().path,
-            second.resolvingSymlinksInPath().path
-        ])
-        XCTAssertEqual(configuration.primaryAllowedRootPath, allowed.resolvingSymlinksInPath().path)
         XCTAssertTrue(configuration.isPaused)
 
         let activities = try await store.loadRecentActivities(limit: 10)
         XCTAssertEqual(activities.map(\.operation), ["second", "first"])
     }
 
-    func testAddsRemovesAndMigratesLegacySingleRootConfiguration() async throws {
+    func testIgnoresLegacyRootsAndDropsThemOnSave() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
-        let runtime = fixture.base.appendingPathComponent("runtime", isDirectory: true)
-        let first = fixture.base.appendingPathComponent("first", isDirectory: true)
-        let second = fixture.base.appendingPathComponent("second", isDirectory: true)
-        try FileManager.default.createDirectory(at: runtime, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
-        let legacy = """
-        {"allowedRootPath":"\(first.path)","isPaused":true,"updatedAt":"2026-07-19T00:00:00Z"}
-        """
-        try Data(legacy.utf8).write(to: runtime.appendingPathComponent("runtime.json"))
-        let store = RuntimeStore(baseDirectory: runtime)
-
-        let migrated = try await store.loadConfiguration()
-        XCTAssertEqual(migrated.allowedRootPaths, [first.path])
-        XCTAssertTrue(migrated.isPaused)
-
-        _ = try await store.addAllowedRoots([second, first])
-        var updated = try await store.loadConfiguration()
-        XCTAssertEqual(updated.allowedRootPaths, [first.path, second.path])
-
-        _ = try await store.removeAllowedRoot(path: first.path)
-        updated = try await store.loadConfiguration()
-        XCTAssertEqual(updated.allowedRootPaths, [second.path])
+        let store = RuntimeStore(baseDirectory: fixture.base)
+        for legacy in [
+            "{\"allowedRootPath\":\"/missing\",\"isPaused\":true}",
+            "{\"allowedRootPaths\":[\"/missing\"],\"isPaused\":true}"
+        ] {
+            try Data(legacy.utf8).write(to: store.configurationURL)
+            let configuration = try await store.loadConfiguration()
+            XCTAssertTrue(configuration.isPaused)
+            try await store.saveConfiguration(configuration)
+            let saved = try String(contentsOf: store.configurationURL, encoding: .utf8)
+            XCTAssertFalse(saved.contains("allowedRoot"))
+        }
     }
 }

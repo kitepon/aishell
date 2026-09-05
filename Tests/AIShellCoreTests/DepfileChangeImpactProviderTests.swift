@@ -153,7 +153,7 @@ private final class DepfileFixture {
 
     func runtime() async throws -> (store: RuntimeStore, workspace: WorkspaceStateRuntime, cursor: String) {
         let store = RuntimeStore(baseDirectory: base.appendingPathComponent("runtime", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let workspace = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let snapshot = try await workspace.snapshot(path: root.path, contextBudget: 0)
         return (store, workspace, snapshot.cursor)

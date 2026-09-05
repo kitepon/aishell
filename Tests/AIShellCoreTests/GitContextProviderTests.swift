@@ -308,7 +308,7 @@ final class GitContextProviderTests: XCTestCase {
         let faulty = fixture.base.appendingPathComponent("faulty-git")
         try Data("#!/bin/sh\nprintf 'worker exploded' >&2\nexit 2\n".utf8).write(to: faulty)
         XCTAssertEqual(chmod(faulty.path, 0o755), 0)
-        let resolver = try AllowedPathResolver(rootPath: fixture.base.path)
+        let resolver = PathResolver(baseDirectory: URL(fileURLWithPath: fixture.base.path))
         let store = EvidenceStore(baseDirectory: fixture.base.appendingPathComponent(".git/faulty-evidence"))
         let provider = GitContextProvider(resolver: resolver, evidenceStore: store, gitURL: faulty)
         let binding = fixture.binding()
@@ -535,7 +535,7 @@ private struct GitFixture {
         rawContentHook: (@Sendable (URL, GitRawContentHookPhase) throws -> Void)? = nil
     ) throws -> (GitContextProvider, EvidenceStore, GitWorkspaceComparisonBinding) {
         let store = EvidenceStore(baseDirectory: base.appendingPathComponent(".git/aishell-evidence-\(suffix)"))
-        let resolver = try AllowedPathResolver(rootPath: base.path)
+        let resolver = PathResolver(baseDirectory: URL(fileURLWithPath: base.path))
         let provider: GitContextProvider
         if let rawContentHook {
             provider = GitContextProvider(

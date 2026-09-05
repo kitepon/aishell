@@ -18,7 +18,7 @@ dotagentsは公開contractを使って製品横断wireと互換性を統合す�
 
 - [archive/](archive/): 完了planと置換済み設計資料。
 - [archive/development-efficiency-plan.md](archive/development-efficiency-plan.md): 全Phase受入済みの能力拡張campaign履歴。現行のnorth starと設計境界は`AGENTS.md`へ統合済み。
-- [archive/releases/](archive/releases/): 0.3.0〜0.4.12のrelease notes。公開済みversionの外部正本はGitHub Releasesである。
+- [archive/releases/](archive/releases/): 過去のrelease notes。公開済みversionの外部正本はGitHub Releasesである。
 
 archiveは過去の説明であり、現行挙動の正本ではない。
 

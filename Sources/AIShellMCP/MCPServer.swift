@@ -645,25 +645,12 @@ final class MCPServer: Sendable {
 
     private func runtimeStatus() async throws -> JSONValue {
         let configuration = try await store.loadConfiguration()
-        let resolver = try? AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
-        let automaticWorktrees = resolver?.gitWorktreeRootURLs.map(\.path) ?? []
-        let effectiveRoots = resolver?.rootURLs.map(\.path) ?? configuration.allowedRootPaths
-        let primary = configuration.primaryAllowedRootPath.map(JSONValue.string) ?? .null
-        let nextAction: String
-        if configuration.isPaused {
-            nextAction = "runtime_open_managerを呼び、AIShell画面で再開してください。"
-        } else if configuration.allowedRootPaths.isEmpty {
-            nextAction = "runtime_open_managerを呼び、AIShell画面で許可rootを追加してください。"
-        } else {
-            nextAction = "利用可能です。絶対パスはeffectiveAllowedRootPaths、相対パスはprimaryAllowedRootPathを基準にします。Git worktreeは自動認識されるため手動追加しないでください。"
-        }
-
+        let resolver = await store.pathResolver()
+        let nextAction = configuration.isPaused
+            ? "runtime_open_managerを呼び、AIShell画面で再開してください。"
+            : "利用可能です。対象フォルダは絶対パスで指定できます。相対パスはrelativePathBaseを基準にします。"
         return .object([
-            "allowedRootPaths": .array(configuration.allowedRootPaths.map(JSONValue.string)),
-            "automaticGitWorktreePaths": .array(automaticWorktrees.map(JSONValue.string)),
-            "effectiveAllowedRootPaths": .array(effectiveRoots.map(JSONValue.string)),
-            "primaryAllowedRootPath": primary,
-            "relativePathBase": primary,
+            "relativePathBase": .string(resolver.rootURL.path),
             "isPaused": .bool(configuration.isPaused),
             "updatedAt": .string(ISO8601DateFormatter().string(from: configuration.updatedAt)),
             "managerTool": .string("runtime_open_manager"),
@@ -1042,10 +1029,10 @@ final class MCPServer: Sendable {
     private func changeSetService(rootPath: String) async throws -> ApplyChangeSetService {
         let configuration = try await store.loadConfiguration()
         guard !configuration.isPaused else { throw AIShellError.paused }
-        let resolver = try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
+        let resolver = await store.pathResolver()
         let root = URL(fileURLWithPath: rootPath, isDirectory: true)
             .standardizedFileURL.resolvingSymlinksInPath()
-        guard resolver.rootURLs.contains(root) else { throw AIShellError.outsideAllowedRoot(root.path) }
+        _ = try resolver.resolveExisting(root.path)
         return try await services.changeSetService(root: root)
     }
 
@@ -1261,7 +1248,7 @@ final class MCPServer: Sendable {
         if let error = error as? GitContextError {
             switch error {
             case .notGitRepository: return ("NOT_GIT_REPOSITORY", error.localizedDescription)
-            case .repositoryOutsideAllowedRoot: return ("REPOSITORY_OUTSIDE_ALLOWED_ROOT", error.localizedDescription)
+            case .repositoryOutsideAllowedRoot: return ("REPOSITORY_OUTSIDE_WORKSPACE", error.localizedDescription)
             case .unresolvedBase: return ("UNRESOLVED_BASE", error.localizedDescription)
             case .invalidComparisonMode: return ("INVALID_COMPARISON_MODE", error.localizedDescription)
             case .unbornHeadWithExplicitBase: return ("UNBORN_HEAD_WITH_EXPLICIT_BASE", error.localizedDescription)
@@ -1277,9 +1264,8 @@ final class MCPServer: Sendable {
             return ("INTERNAL_ERROR", error.localizedDescription)
         }
         switch error {
-        case .notConfigured: return ("NOT_CONFIGURED", error.localizedDescription)
         case .paused: return ("RUNTIME_PAUSED", error.localizedDescription)
-        case .outsideAllowedRoot: return ("OUTSIDE_ALLOWED_ROOT", error.localizedDescription)
+        case .outsideWorkspace: return ("OUTSIDE_WORKSPACE", error.localizedDescription)
         case .reservedPath: return ("RESERVED_PATH", error.localizedDescription)
         case .invalidPath: return ("INVALID_PATH", error.localizedDescription)
         case .itemAlreadyExists: return ("ITEM_ALREADY_EXISTS", error.localizedDescription)

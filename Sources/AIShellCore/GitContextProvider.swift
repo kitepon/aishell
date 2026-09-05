@@ -18,7 +18,7 @@ public enum GitContextError: Error, Equatable, LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .notGitRepository: "NOT_GIT_REPOSITORY"
-        case let .repositoryOutsideAllowedRoot(path): "REPOSITORY_OUTSIDE_ALLOWED_ROOT: \(path)"
+        case let .repositoryOutsideAllowedRoot(path): "REPOSITORY_OUTSIDE_WORKSPACE: \(path)"
         case let .unresolvedBase(ref): "UNRESOLVED_BASE: \(ref)"
         case let .invalidComparisonMode(reason): "INVALID_COMPARISON_MODE: \(reason)"
         case .unbornHeadWithExplicitBase: "UNBORN_HEAD_WITH_EXPLICIT_BASE"
@@ -242,7 +242,7 @@ public actor GitContextProvider {
         let template: GitDiffContextResult
     }
 
-    private let resolver: AllowedPathResolver
+    private let resolver: PathResolver
     private let evidenceStore: EvidenceStore
     private let gitURL: URL
     private let retentionSeconds: TimeInterval
@@ -253,7 +253,7 @@ public actor GitContextProvider {
     private var anchoredDirectoryDescriptors: [String: Int32] = [:]
 
     public init(
-        resolver: AllowedPathResolver,
+        resolver: PathResolver,
         evidenceStore: EvidenceStore,
         gitURL: URL = URL(fileURLWithPath: "/usr/bin/git"),
         retentionSeconds: TimeInterval = EvidenceStore.defaultRetentionSeconds,
@@ -269,7 +269,7 @@ public actor GitContextProvider {
     }
 
     init(
-        resolver: AllowedPathResolver,
+        resolver: PathResolver,
         evidenceStore: EvidenceStore,
         gitURL: URL = URL(fileURLWithPath: "/usr/bin/git"),
         retentionSeconds: TimeInterval = EvidenceStore.defaultRetentionSeconds,
@@ -302,7 +302,6 @@ public actor GitContextProvider {
         }
         let directory = try resolver.resolveExisting(path)
         let repositoryRoot = try repositoryRoot(from: directory)
-        try validateRepositoryFamily(repositoryRoot)
         let repositoryIdentity = try fileIdentity(repositoryRoot)
         let scope = try literalScope(directory: directory, repositoryRoot: repositoryRoot)
         try rawContentOpenHookForTests?(repositoryRoot, .beforeRootOpen)
@@ -482,19 +481,6 @@ private extension GitContextProvider {
         } catch let GitContextError.gitFailed(_, _, stderr)
             where stderr.lowercased().contains("not a git repository") {
             throw GitContextError.notGitRepository
-        }
-    }
-
-    func validateRepositoryFamily(_ repositoryRoot: URL) throws {
-        guard resolver.rootURLs.contains(where: { contains(repositoryRoot, in: $0) || contains($0, in: repositoryRoot) }) else {
-            throw GitContextError.repositoryOutsideAllowedRoot(repositoryRoot.path)
-        }
-        let commonResult = try run(["rev-parse", "--git-common-dir"], cwd: repositoryRoot)
-        let commonText = try text(commonResult.stdout)
-        let common = (commonText.hasPrefix("/") ? URL(fileURLWithPath: commonText) : repositoryRoot.appendingPathComponent(commonText))
-            .standardizedFileURL.resolvingSymlinksInPath()
-        guard resolver.rootURLs.contains(where: { contains(common, in: $0) }) else {
-            throw GitContextError.repositoryOutsideAllowedRoot(common.path)
         }
     }
 

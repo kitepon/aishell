@@ -159,7 +159,7 @@ private final class Phase3RunCheckFixture: @unchecked Sendable {
         try Data("{}\n".utf8).write(to: manifestURL, options: .atomic)
 
         let runtime = RuntimeStore(baseDirectory: base.appendingPathComponent("runtime", isDirectory: true))
-        try await runtime.setAllowedRoot(root)
+        await runtime.setWorkingDirectoryForTesting(root)
         let evidence = EvidenceStore(baseDirectory: base.appendingPathComponent("evidence", isDirectory: true))
         service = DevelopmentRuntimeService(
             runtimeStore: runtime,
@@ -310,7 +310,7 @@ private final class Phase3ImpactFixture: @unchecked Sendable {
 
     func runtime() async throws -> (store: RuntimeStore, workspace: WorkspaceStateRuntime, cursor: String) {
         let store = RuntimeStore(baseDirectory: base.appendingPathComponent("runtime", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let workspace = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let snapshot = try await workspace.snapshot(path: root.path, contextBudget: 0)
         return (store, workspace, snapshot.cursor)
@@ -354,7 +354,7 @@ private final class Phase3FocusedFixture: @unchecked Sendable {
         try Data("import '../src/a.mjs';\n".utf8).write(to: testURL, options: .atomic)
 
         let runtime = RuntimeStore(baseDirectory: base.appendingPathComponent("runtime", isDirectory: true))
-        try await runtime.setAllowedRoot(root)
+        await runtime.setWorkingDirectoryForTesting(root)
         let workspace = WorkspaceStateRuntime(runtimeStore: runtime, startsFSEvents: false)
         cursor = try await workspace.snapshot(path: root.path, contextBudget: 0).cursor
         let evidence = EvidenceStore(baseDirectory: base.appendingPathComponent("evidence", isDirectory: true))

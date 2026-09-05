@@ -42,7 +42,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.swift")
         try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
 
         let first = try await runtime.currentSearchCursor(path: root.path)
@@ -72,7 +72,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
 
         let initialRuntime = WorkspaceStateRuntime(runtimeStore: store)
         let initial = try await initialRuntime.snapshot(path: root.path, contextBudget: 0)
@@ -95,7 +95,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.swift")
         try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store)
         let initial = try await runtime.snapshot()
 
@@ -140,7 +140,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.swift")
         try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -166,7 +166,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.swift")
         try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -194,7 +194,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.swift")
         try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let firstRuntime = WorkspaceStateRuntime(runtimeStore: store)
         let first = try await firstRuntime.snapshot()
         let firstReadCount = await firstRuntime.contentReadCountForTests()
@@ -218,7 +218,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.swift")
         try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let initial = try await WorkspaceStateRuntime(runtimeStore: store).snapshot()
         try "let value = 200\n".write(to: file, atomically: false, encoding: .utf8)
 
@@ -242,7 +242,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let initial = try await WorkspaceStateRuntime(runtimeStore: store).snapshot()
 
         let handle = try FileHandle(forWritingTo: file)
@@ -274,7 +274,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.swift")
         try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let firstRuntime = WorkspaceStateRuntime(runtimeStore: store)
         let initial = try await firstRuntime.snapshot()
         try "let value = 2\n".write(to: file, atomically: false, encoding: .utf8)
@@ -299,7 +299,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         )
         let runtimeDirectory = fixture.base.appendingPathComponent("runtime")
         let store = RuntimeStore(baseDirectory: runtimeDirectory)
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let first = try await WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false).snapshot()
         let rootDigest = String(first.cursor.split(separator: ":")[1])
         let checkpoint = runtimeDirectory
@@ -326,7 +326,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             to: root.appendingPathComponent("State.txt"), atomically: false, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let unobserved = try await WorkspaceStateRuntime(
             runtimeStore: store, startsFSEvents: false
         ).snapshot()
@@ -350,7 +350,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             to: root.appendingPathComponent("State.txt"), atomically: false, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let firstRuntime = WorkspaceStateRuntime(
             runtimeStore: store,
             initializationEventsForTests: [],
@@ -393,7 +393,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             at: firstRoot.appendingPathComponent(".build"), withIntermediateDirectories: true
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoots([firstRoot, secondRoot])
+        await store.setWorkingDirectoryForTesting(firstRoot)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
 
         let initial = try await runtime.snapshot(path: firstRoot.path)
@@ -424,7 +424,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -450,7 +450,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let initial = try await WorkspaceStateRuntime(
             runtimeStore: store, startsFSEvents: false
         ).snapshot()
@@ -475,7 +475,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(
             runtimeStore: store, startsFSEvents: false, journalLimit: 2
         )
@@ -512,7 +512,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let otherFile = root.appendingPathComponent("Sources/Other.swift")
         try "let other = 1\n".write(to: otherFile, atomically: true, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
 
         let initial = try await runtime.snapshot(entryLimit: 100)
@@ -552,7 +552,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
         let changed = root.appendingPathComponent("Recovered.swift")
@@ -593,7 +593,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             to: root.appendingPathComponent("State.txt"), atomically: false, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store)
         let initial = try await runtime.snapshot()
         await runtime.markRescanRequired(reason: "injected gap")
@@ -625,7 +625,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         _ = try await WorkspaceStateRuntime(runtimeStore: store).snapshot()
 
         let handle = try FileHandle(forWritingTo: file)
@@ -664,7 +664,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         _ = try await WorkspaceStateRuntime(runtimeStore: store).snapshot()
 
         try "middle\n".write(to: file, atomically: false, encoding: .utf8)
@@ -699,7 +699,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -726,7 +726,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -755,7 +755,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.txt")
         try "before\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -776,7 +776,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.txt")
         try "before\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -798,7 +798,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = root.appendingPathComponent("State.txt")
         try "before\n".write(to: file, atomically: true, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store)
         let initial = try await runtime.snapshot()
 
@@ -821,7 +821,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             withDestinationURL: outside
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
 
         let snapshot = try await runtime.snapshot()
@@ -853,7 +853,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         }
 
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
 
         let snapshot = try await runtime.snapshot()
@@ -876,7 +876,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         try FileManager.default.createDirectory(at: github, withIntermediateDirectories: true)
         try Data("name: ci\n".utf8).write(to: github.appendingPathComponent("workflow.yml"))
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
 
         let snapshot = try await runtime.snapshot(entryLimit: 100)
@@ -892,7 +892,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let files = ["A.txt", "B.txt", "C.txt"].map { root.appendingPathComponent($0) }
         for file in files { try "before\n".write(to: file, atomically: true, encoding: .utf8) }
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
         for file in files { try "after\n".write(to: file, atomically: true, encoding: .utf8) }
@@ -919,7 +919,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             to: oldDirectory.appendingPathComponent("Child.swift"), atomically: true, encoding: .utf8
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -941,7 +941,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let newFile = root.appendingPathComponent("New.swift")
         try "value\n".write(to: oldFile, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -960,7 +960,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
         let parts = initial.cursor.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
@@ -994,7 +994,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let large = inputs.appendingPathComponent("large.bin")
         try Data(repeating: 0x41, count: 5 * 1_024 * 1_024).write(to: large)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let snapshot = try await runtime.snapshot()
         let contract = ProjectProfileCheckInputContract.complete(
@@ -1032,7 +1032,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let inputs = root.appendingPathComponent("Inputs", isDirectory: true)
         try FileManager.default.createDirectory(at: inputs, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let snapshot = try await runtime.snapshot()
         let contract = ProjectProfileCheckInputContract.complete(
@@ -1069,7 +1069,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             withDestinationURL: fixture.base
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let snapshot = try await runtime.snapshot()
         let contract = ProjectProfileCheckInputContract.complete(provider: "fixture", providerVersion: "fixture-v1", includedRoots: ["Inputs"])
@@ -1110,7 +1110,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let file = inputs.appendingPathComponent("value.txt")
         try "before\n".write(to: file, atomically: true, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(
             runtimeStore: store,
             startsFSEvents: false,
@@ -1142,7 +1142,7 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         let inputs = root.appendingPathComponent("Inputs", isDirectory: true)
         try FileManager.default.createDirectory(at: inputs, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(
             runtimeStore: store,
             startsFSEvents: false,

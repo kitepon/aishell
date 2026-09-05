@@ -26,8 +26,8 @@ actor MCPServiceRegistry {
         injectedManagedRuns = managedRunService
     }
 
-    /// rootごとに1つの`ApplyChangeSetService`を返す。rootはcaller側で許可rootへの
-    /// 所属を検証済みの、解決済み絶対pathであること。
+    /// 対象フォルダごとに1つの`ApplyChangeSetService`を返す。
+    /// rootは存在確認済みの、解決済み絶対pathであること。
     func changeSetService(root: URL) async throws -> ApplyChangeSetService {
         if let task = changeSetTasks[root.path] {
             return try await task.value

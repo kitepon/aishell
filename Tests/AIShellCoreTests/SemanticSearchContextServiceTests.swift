@@ -103,7 +103,7 @@ private final class SemanticSearchFixture {
     }
 
     func prepare() async throws {
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         cursor = try await workspace.snapshot(path: root.path, contextBudget: 0).cursor
     }
 

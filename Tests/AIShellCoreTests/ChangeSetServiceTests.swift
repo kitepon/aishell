@@ -1105,7 +1105,7 @@ private struct Fixture {
         let root = base.appendingPathComponent("root", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let runtime = RuntimeStore(baseDirectory: base.appendingPathComponent("runtime", isDirectory: true))
-        try await runtime.setAllowedRoot(root)
+        await runtime.setWorkingDirectoryForTesting(root)
         let clock = ApplyChangeSetTestClock(now: Date(timeIntervalSince1970: 1_800_000_000))
         let probe = try ApplyChangeSetTestProbe(baseDirectory: base, disabledCapabilities: [], clock: clock)
         let faults = ApplyChangeSetFailureInjector()

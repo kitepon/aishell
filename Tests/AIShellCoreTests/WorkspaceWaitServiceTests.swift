@@ -10,7 +10,7 @@ final class WorkspaceWaitServiceTests: XCTestCase {
         let file = root.appendingPathComponent("State.swift")
         try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store)
         let initial = try await runtime.snapshot()
 
@@ -42,7 +42,7 @@ final class WorkspaceWaitServiceTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false, journalLimit: 1)
         let initial = try await runtime.snapshot()
         for name in ["A.txt", "B.txt"] {
@@ -73,7 +73,7 @@ final class WorkspaceWaitServiceTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
 
@@ -96,7 +96,7 @@ final class WorkspaceWaitServiceTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
         let task = Task {

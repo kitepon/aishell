@@ -14,13 +14,12 @@ profile: its catalog contains this tool alone. The response schema is fixed at
 - Product identifier and version
 - Supported OS, architecture, minimum OS, and support decision
 - Runtime configuration schema, migration status, configuration validity, and operation readiness
-- Counts of configured roots, automatic Git worktrees, and effective roots
+- 旧root件数の3フィールドは診断schema互換のため0を返す。登録機能や範囲制限はない。
 - MCP stdio transport, protocol version, and catalog-validation readiness
 - Manager application bundle readiness
 - Typed issue codes
 
-`paused` and `not_configured` are operation-readiness states, not product failures. A runtime
-JSON decode failure or invalid root makes product readiness false.
+`paused`は操作停止を表す。設定ファイルがなくても`ready`になり、旧設定のフォルダが存在しなくても利用できる。JSONの読み取り失敗は製品の準備失敗として返す。
 
 ## Privacy
 
@@ -37,6 +36,6 @@ BugHub ingest `factory_diagnostics` only.
 ## Version and migration
 
 - Diagnostics schema: `aishell.native_factory_diagnostics.v1`
-- Runtime schema: `aishell.runtime_configuration.v2`
-- The legacy single `allowedRootPath` remains compatible-on-read as multiple `allowedRootPaths`
+- Runtime schema: `aishell.runtime_configuration.v3`
+- 旧`allowedRootPath`・`allowedRootPaths`は読み取り時に無視し、保存時に除去する。停止状態と更新日時は引き継ぐ。
 - A schema change adds a new version; existing consumers are never silently reinterpreted

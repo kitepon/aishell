@@ -120,7 +120,7 @@ private final class Fixture: @unchecked Sendable {
         try aData.write(to: a); try bData.write(to: b)
         aSHA = Self.sha(aData); bSHA = Self.sha(bData)
         store = RuntimeStore(baseDirectory: base.appendingPathComponent("state", isDirectory: true))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         cursor = try await runtime.snapshot(path: root.path).cursor
     }

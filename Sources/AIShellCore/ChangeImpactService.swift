@@ -1546,7 +1546,7 @@ public actor ChangeImpactService {
     private func normalizeChangedPaths(
         _ values: [ChangeImpactChangedPath],
         root: URL,
-        resolver: AllowedPathResolver
+        resolver: PathResolver
     ) throws -> [ChangeImpactChangedPath] {
         var result: [String: ChangeImpactChangedPath] = [:]
         for value in values {
@@ -1567,7 +1567,7 @@ public actor ChangeImpactService {
     private func normalizeChangedSymbols(
         _ values: [ChangeImpactChangedSymbol],
         root: URL,
-        resolver: AllowedPathResolver
+        resolver: PathResolver
     ) throws -> [ChangeImpactChangedSymbol] {
         var result: [String: ChangeImpactChangedSymbol] = [:]
         for value in values {
@@ -1600,7 +1600,7 @@ public actor ChangeImpactService {
         _ path: String,
         expectedAbsent: Bool,
         root: URL,
-        resolver: AllowedPathResolver
+        resolver: PathResolver
     ) throws -> String {
         guard !path.isEmpty, Data(path.utf8).count <= 4_096 else {
             throw ChangeImpactError.requestTooLarge("path exceeds limit")
@@ -1610,7 +1610,7 @@ public actor ChangeImpactService {
         let components = url.pathComponents
         guard components.count > rootComponents.count,
               Array(components.prefix(rootComponents.count)) == rootComponents else {
-            throw AIShellError.outsideAllowedRoot(url.path)
+            throw AIShellError.outsideWorkspace(url.path)
         }
         return components.dropFirst(rootComponents.count).joined(separator: "/")
     }
@@ -1649,15 +1649,15 @@ public actor ChangeImpactService {
         }
     }
 
-    private func activeResolver() async throws -> AllowedPathResolver {
+    private func activeResolver() async throws -> PathResolver {
         let configuration = try await runtimeStore.loadConfiguration()
         guard !configuration.isPaused else { throw AIShellError.paused }
-        return try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
+        return await runtimeStore.pathResolver()
     }
 
-    private func resolveRoot(_ path: String?, resolver: AllowedPathResolver) throws -> URL {
+    private func resolveRoot(_ path: String?, resolver: PathResolver) throws -> URL {
         let root = try resolver.resolveExisting(path)
-        guard resolver.isAllowedRoot(root) else { throw AIShellError.invalidPath(root.path) }
+        guard try root.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else { throw AIShellError.invalidPath(root.path) }
         return root
     }
 

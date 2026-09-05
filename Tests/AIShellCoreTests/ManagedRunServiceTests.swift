@@ -187,7 +187,7 @@ private struct Fixture {
         workspace = root.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
         runtimeStore = RuntimeStore(baseDirectory: root.appendingPathComponent("state", isDirectory: true))
-        try await runtimeStore.setAllowedRoot(workspace)
+        await runtimeStore.setWorkingDirectoryForTesting(workspace)
         let projectRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let candidates = [

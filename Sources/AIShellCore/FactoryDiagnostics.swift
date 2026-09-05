@@ -2,9 +2,9 @@ import Foundation
 
 public enum AIShellProduct {
     public static let identifier = "aishell"
-    public static let version = "0.4.12"
+    public static let version = "0.5.0"
     public static let diagnosticsSchemaVersion = "aishell.native_factory_diagnostics.v1"
-    public static let runtimeSchemaVersion = "aishell.runtime_configuration.v2"
+    public static let runtimeSchemaVersion = "aishell.runtime_configuration.v3"
     public static let mcpProtocolVersion = "2025-11-25"
 }
 
@@ -80,18 +80,7 @@ public struct FactoryDiagnosticsService {
         var issues: [String] = []
         do {
             let configuration = try await store.loadConfiguration()
-            let resolver = try? AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
-            let operationReadiness: String
-            if configuration.isPaused {
-                operationReadiness = "paused"
-            } else if configuration.allowedRootPaths.isEmpty {
-                operationReadiness = "not_configured"
-            } else if resolver == nil {
-                operationReadiness = "invalid_roots"
-                issues.append("runtime.invalid_roots")
-            } else {
-                operationReadiness = "ready"
-            }
+            let operationReadiness = configuration.isPaused ? "paused" : "ready"
 
             runtime = FactoryDiagnostics.Runtime(
                 schemaVersion: AIShellProduct.runtimeSchemaVersion,
@@ -101,9 +90,9 @@ public struct FactoryDiagnosticsService {
                 migrationStatus: "compatible_on_read",
                 operationReadiness: operationReadiness,
                 isPaused: configuration.isPaused,
-                configuredRootCount: configuration.allowedRootPaths.count,
-                automaticGitWorktreeCount: resolver?.gitWorktreeRootURLs.count,
-                effectiveRootCount: resolver?.rootURLs.count
+                configuredRootCount: 0,
+                automaticGitWorktreeCount: 0,
+                effectiveRootCount: 0
             )
         } catch {
             runtime = FactoryDiagnostics.Runtime(
@@ -149,7 +138,6 @@ public struct FactoryDiagnosticsService {
             ready: mcpReady
                 && platform.supported
                 && runtime.configurationState != "invalid"
-                && runtime.operationReadiness != "invalid_roots"
                 && managerReady,
             issues: issues
         )

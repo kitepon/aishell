@@ -680,7 +680,7 @@ private final class ImpactFixture: @unchecked Sendable {
         cursor: String
     ) {
         let store = RuntimeStore(baseDirectory: base.appendingPathComponent("runtime-\(suffix)"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let workspace = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let snapshot = try await workspace.snapshot(path: root.path, contextBudget: 0)
         return (store, workspace, snapshot.cursor)

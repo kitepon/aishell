@@ -1,7 +1,7 @@
 import XCTest
 @testable import AIShellCore
 
-final class AllowedPathResolverTests: XCTestCase {
+final class PathResolverTests: XCTestCase {
     func testRelativeUsesFirstRootAndAbsoluteMatchesSecondRoot() throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
@@ -11,14 +11,13 @@ final class AllowedPathResolverTests: XCTestCase {
         try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
         let secondFile = second.appendingPathComponent("value.txt")
         try Data("value".utf8).write(to: secondFile)
-        let resolver = try AllowedPathResolver(rootPaths: [first.path, second.path])
+        let resolver = PathResolver(baseDirectory: first)
 
         XCTAssertEqual(try resolver.resolveDestination("new.txt").path, first.appendingPathComponent("new.txt").path)
         XCTAssertEqual(try resolver.resolveExisting(secondFile.path).path, secondFile.path)
-        XCTAssertTrue(resolver.isAllowedRoot(second))
     }
 
-    func testRejectsParentTraversalAndEscapingSymlink() throws {
+    func testResolvesParentTraversalAndSymlinkOutsideBase() throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let outside = fixture.base.appendingPathComponent("outside", isDirectory: true)
@@ -31,25 +30,13 @@ final class AllowedPathResolverTests: XCTestCase {
             withDestinationURL: outside
         )
 
-        let resolver = try AllowedPathResolver(rootPath: root.path)
+        let resolver = PathResolver(baseDirectory: URL(fileURLWithPath: root.path))
 
-        XCTAssertThrowsError(try resolver.resolveDestination("../outside/new.txt")) { error in
-            guard case AIShellError.outsideAllowedRoot = error else {
-                return XCTFail("想定外のエラー: \(error)")
-            }
-        }
+        XCTAssertNoThrow(try resolver.resolveDestination("../outside/new.txt"))
 
-        XCTAssertThrowsError(try resolver.resolveExisting("escape/secret.txt")) { error in
-            guard case AIShellError.outsideAllowedRoot = error else {
-                return XCTFail("想定外のエラー: \(error)")
-            }
-        }
+        XCTAssertNoThrow(try resolver.resolveExisting("escape/secret.txt"))
 
-        XCTAssertThrowsError(try resolver.resolveDestination("escape/new.txt")) { error in
-            guard case AIShellError.outsideAllowedRoot = error else {
-                return XCTFail("想定外のエラー: \(error)")
-            }
-        }
+        XCTAssertNoThrow(try resolver.resolveDestination("escape/new.txt"))
     }
 
     func testAutomaticallyAllowsRegisteredGitWorktree() throws {
@@ -70,13 +57,12 @@ final class AllowedPathResolverTests: XCTestCase {
         let file = worktree.appendingPathComponent("value.txt")
         try Data("value".utf8).write(to: file)
 
-        let resolver = try AllowedPathResolver(rootPath: repository.path)
+        let resolver = PathResolver(baseDirectory: URL(fileURLWithPath: repository.path))
 
-        XCTAssertEqual(resolver.gitWorktreeRootURLs.map(\.path), [worktree.path])
         XCTAssertEqual(try resolver.resolveExisting(file.path).path, file.path)
     }
 
-    func testRejectsUnregisteredOrNonReciprocalWorktree() throws {
+    func testResolvesUnregisteredWorktree() throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let repository = fixture.base.appendingPathComponent("repository", isDirectory: true)
@@ -91,13 +77,8 @@ final class AllowedPathResolverTests: XCTestCase {
         try Data("gitdir: /unrelated/admin\n".utf8).write(to: sibling.appendingPathComponent(".git"))
         let file = sibling.appendingPathComponent("value.txt")
         try Data("value".utf8).write(to: file)
-        let resolver = try AllowedPathResolver(rootPath: repository.path)
+        let resolver = PathResolver(baseDirectory: URL(fileURLWithPath: repository.path))
 
-        XCTAssertTrue(resolver.gitWorktreeRootURLs.isEmpty)
-        XCTAssertThrowsError(try resolver.resolveExisting(file.path)) { error in
-            guard case AIShellError.outsideAllowedRoot = error else {
-                return XCTFail("想定外のエラー: \(error)")
-            }
-        }
+        XCTAssertNoThrow(try resolver.resolveExisting(file.path))
     }
 }

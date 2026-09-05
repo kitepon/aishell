@@ -355,7 +355,7 @@ enum ToolCatalog {
             properties: [
                 "executable": string("実行ファイル名または絶対パス。PATHはAIShellが解決し、shellとenvは拒否します"),
                 "arguments": stringArray("引数配列。shell展開は行いません"),
-                "working_directory": string("許可root内の作業ディレクトリ。省略時は先頭root"),
+                "working_directory": string("作業ディレクトリ。省略時はMCP起動ディレクトリ"),
                 "environment": stringMap("追加・上書きする環境変数"),
                 "timeout_seconds": number("timeout秒。0.1〜3600、既定120", minimum: 0.1, maximum: 3600),
                 "retention_seconds": number("完全logを保持する秒数。最小1、既定86400", minimum: 1)
@@ -397,7 +397,7 @@ enum ToolCatalog {
         tool(
             "workspace_snapshot", "workspace現在状態のpreviewと差分", "初回は現在filesystemを確定してbounded previewを返し、以後はFSEventsで観測したpathだけをidentity/hash照合します。任意のgit_diffとproject_profileを同じ観測へ束ねられます。event gapや期限切れcursorは黙ってfull scanせず明示errorにします。",
             properties: [
-                "path": string("snapshot root。省略時は先頭許可root"),
+                "path": string("snapshot root。省略時はMCP起動ディレクトリ"),
                 "since_cursor": string("前回cursor。省略時は明示的なfull snapshot"),
                 "entry_limit": integer("最大entry/change件数。1〜5000、既定500", minimum: 1, maximum: 5_000),
                 "context_budget": integer("guidance・manifest・test・小規模workspace本文、またはdelta本文の共有byte上限。0〜65536、既定16384", minimum: 0, maximum: 65_536),
@@ -448,7 +448,7 @@ enum ToolCatalog {
         tool(
             "read_context", "複数fileを共有budgetで読取", "複数targetを一つのbyte budgetで読み、SHA、omitted bytes、明示continuationを返します。巨大fileや後続fileを暗黙切捨てしません。",
             properties: [
-                "targets": stringArray("許可root内の相対または絶対file path配列"),
+                "targets": stringArray("相対または絶対ファイルパスの配列"),
                 "byte_budget": integer("全target共有の返却上限byte。1〜1048576、既定65536", minimum: 1, maximum: 1_048_576),
                 "continuation": string("前回結果のcontinuation")
             ],
@@ -488,7 +488,7 @@ enum ToolCatalog {
                         "additionalProperties": .bool(false)
                     ])
                 ]),
-                "path": string("検索scope directoryまたは単一regular file。省略時は先頭許可root"),
+                "path": string("検索scope directoryまたは単一regular file。省略時はMCP起動ディレクトリ"),
                 "provider": enumString(["sourcekit-lsp"], "semantic provider"),
                 "cursor": string("semantic観測を束縛するworkspace cursor"),
                 "ranking": .object([
@@ -525,7 +525,7 @@ enum ToolCatalog {
         tool(
             "workspace_wait", "workspace変更を待機", "保持済みworkspace journalを消費せず、指定cursorより後の変更または期限まで待ちます。gap・期限切れcursorはfull scanへfallbackせず明示errorにし、request cancellationは待機だけを終了します。",
             properties: [
-                "path": string("待機対象root。省略時は先頭許可root"),
+                "path": string("待機対象root。省略時はMCP起動ディレクトリ"),
                 "from_cursor": string("workspace_snapshot等が返した開始cursor"),
                 "timeout_ms": integer("待機上限milliseconds。0〜300000", minimum: 0, maximum: 300_000)
             ],
@@ -543,7 +543,7 @@ enum ToolCatalog {
             )
         ),
         tool(
-            "apply_change_set", "複数fileを原子的に変更", "一つの許可root内のcreate、write、delete、renameをexpected SHAとworkspace cursorで固定し、durable transactionとして適用します。途中失敗を部分成功へ丸めず、完全diff artifactと更新後cursorを返します。",
+            "apply_change_set", "複数fileを原子的に変更", "指定フォルダ内のcreate、write、delete、renameをexpected SHAとworkspace cursorで固定し、durable transactionとして適用します。途中失敗を部分成功へ丸めず、完全diff artifactと更新後cursorを返します。",
             properties: [
                 "path": string("workspace_snapshotと同じ対象canonical root"),
                 "workspace_cursor": string("workspace_snapshotが返したopaque cursor。cursor以後に変更があれば適用しない"),
@@ -581,20 +581,18 @@ enum ToolCatalog {
             )
         ),
         tool(
-            "runtime_status", "実行状態", "設定root、自動認識したGit worktree、実効root、停止状態、相対パスの基準、次に必要な操作を取得します。Git worktreeを手動追加する必要はありません。停止中でも利用できます。",
+            "runtime_status", "実行状態", "停止状態、相対パスの基準、次に必要な操作を取得します。フォルダ登録は不要です。停止中でも利用できます。",
             properties: [:], required: [], readOnly: true, idempotent: true,
             outputSchema: objectOutput(
-                required: ["allowedRootPaths", "automaticGitWorktreePaths", "effectiveAllowedRootPaths", "primaryAllowedRootPath", "relativePathBase", "isPaused", "updatedAt", "managerTool", "nextAction"],
+                required: ["relativePathBase", "isPaused", "updatedAt", "managerTool", "nextAction"],
                 properties: [
-                    "allowedRootPaths": type("array"), "automaticGitWorktreePaths": type("array"),
-                    "effectiveAllowedRootPaths": type("array"), "primaryAllowedRootPath": nullableType("string"),
                     "relativePathBase": nullableType("string"), "isPaused": type("boolean"),
                     "updatedAt": type("string"), "managerTool": type("string"), "nextAction": type("string")
                 ]
             )
         ),
         tool(
-            "runtime_open_manager", "管理画面を開く", "AIShellが停止中でも管理画面を開きます。許可rootの追加・削除と再開は画面上で行います。",
+            "runtime_open_manager", "管理画面を開く", "AIShellが停止中でも管理画面を開きます。停止と再開は画面上で行います。",
             properties: [:], required: [], idempotent: true,
             outputSchema: objectOutput(
                 required: ["name", "processIdentifier", "isActive"],
@@ -605,8 +603,8 @@ enum ToolCatalog {
             )
         ),
         tool(
-            "files_list", "フォルダ一覧", "許可root内の項目を一覧します。pathを省略すると先頭の許可rootです。",
-            properties: ["path": string("先頭rootからの相対パス、またはいずれかの許可root内の絶対パス")],
+            "files_list", "フォルダ一覧", "指定フォルダの項目を一覧します。pathを省略するとMCP起動ディレクトリです。",
+            properties: ["path": string("MCP起動ディレクトリからの相対パス、または絶対パス")],
             required: [], readOnly: true, idempotent: true
         ),
         tool(
@@ -724,7 +722,7 @@ enum ToolCatalog {
             properties: [
                 "executable": string("実行ファイル名または絶対パス。PATHはAIShellが解決し、shellとenvは拒否します"),
                 "arguments": stringArray("引数配列。shell展開は行いません"),
-                "working_directory": string("いずれかの許可root内の作業ディレクトリ。省略時は先頭root"),
+                "working_directory": string("作業ディレクトリ。省略時はMCP起動ディレクトリ"),
                 "environment": stringMap("追加・上書きする環境変数"),
                 "timeout_seconds": number("timeout秒。0.1〜3600、既定120")
             ],

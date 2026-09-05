@@ -294,7 +294,7 @@ final class MCPRunCheckV2WireTests: XCTestCase {
         try FileManager.default.createDirectory(at: otherRoot, withIntermediateDirectories: true)
         try Data("{\"name\":\"other-project\",\"version\":\"1.0.0\"}\n".utf8)
             .write(to: otherRoot.appendingPathComponent("package.json"))
-        try await fixture.store.setAllowedRoots([fixture.root, otherRoot])
+        await fixture.store.setWorkingDirectoryForTesting(fixture.root)
         let sourceDirectory = fixture.root.appendingPathComponent("Sources/WireFocused", isDirectory: true)
         let testDirectory = fixture.root.appendingPathComponent("Tests/WireFocusedTests", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
@@ -572,7 +572,7 @@ private final class MCPRunCheckWireFixture {
 
     static func make() async throws -> MCPRunCheckWireFixture {
         let fixture = try MCPRunCheckWireFixture()
-        try await fixture.store.setAllowedRoot(fixture.root)
+        await fixture.store.setWorkingDirectoryForTesting(fixture.root)
         return fixture
     }
 

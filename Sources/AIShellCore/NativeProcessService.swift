@@ -129,11 +129,10 @@ public actor NativeProcessService {
         }
     }
 
-    private func activeResolver() async throws -> AllowedPathResolver {
+    private func activeResolver() async throws -> PathResolver {
         let configuration = try await store.loadConfiguration()
         guard !configuration.isPaused else { throw AIShellError.paused }
-        guard !configuration.allowedRootPaths.isEmpty else { throw AIShellError.notConfigured }
-        return try AllowedPathResolver(rootPaths: configuration.allowedRootPaths)
+        return await store.pathResolver()
     }
 
     private func validateExecutable(

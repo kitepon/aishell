@@ -10,7 +10,7 @@ final class NativeProcessServiceTests: XCTestCase {
         let allowed = fixture.base.appendingPathComponent("allowed", isDirectory: true)
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: runtime)
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeProcessService(store: store)
 
         let result = try await service.run(
@@ -35,7 +35,7 @@ final class NativeProcessServiceTests: XCTestCase {
         let allowed = fixture.base.appendingPathComponent("allowed", isDirectory: true)
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeProcessService(store: store)
 
         let result = try await service.run(
@@ -59,7 +59,7 @@ final class NativeProcessServiceTests: XCTestCase {
             withDestinationURL: URL(fileURLWithPath: "/usr/bin/printf")
         )
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeProcessService(store: store)
 
         let result = try await service.run(
@@ -79,7 +79,7 @@ final class NativeProcessServiceTests: XCTestCase {
         let allowed = fixture.base.appendingPathComponent("allowed", isDirectory: true)
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeProcessService(store: store)
 
         let result = try await service.run(
@@ -102,7 +102,7 @@ final class NativeProcessServiceTests: XCTestCase {
         let allowed = fixture.base.appendingPathComponent("allowed", isDirectory: true)
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeProcessService(store: store)
         let script = "import subprocess,time; p=subprocess.Popen(['/bin/sleep','30']); open('child.pid','w').write(str(p.pid)); time.sleep(30)"
 
@@ -134,7 +134,7 @@ final class NativeProcessServiceTests: XCTestCase {
         let evidenceDirectory = fixture.base.appendingPathComponent("evidence", isDirectory: true)
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeProcessService(store: store)
         let evidence = EvidenceStore(baseDirectory: evidenceDirectory, maximumBytes: 5)
 
@@ -165,7 +165,7 @@ final class NativeProcessServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoots([first, second])
+        await store.setWorkingDirectoryForTesting(first)
         let service = NativeProcessService(store: store)
 
         let result = try await service.run(
@@ -178,7 +178,7 @@ final class NativeProcessServiceTests: XCTestCase {
         XCTAssertTrue(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("/second"))
     }
 
-    func testRejectsShellAndWorkingDirectoryOutsideRoot() async throws {
+    func testRejectsShellAndAcceptsWorkingDirectoryOutsideBase() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let allowed = fixture.base.appendingPathComponent("allowed", isDirectory: true)
@@ -186,7 +186,7 @@ final class NativeProcessServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(allowed)
+        await store.setWorkingDirectoryForTesting(allowed)
         let service = NativeProcessService(store: store)
 
         do {
@@ -198,16 +198,10 @@ final class NativeProcessServiceTests: XCTestCase {
             }
         }
 
-        do {
-            _ = try await service.run(
-                executable: "/usr/bin/true",
-                workingDirectory: outside.path
-            )
-            XCTFail("許可ルート外をworking directoryにしてしまいました。")
-        } catch {
-            guard case AIShellError.outsideAllowedRoot = error else {
-                return XCTFail("想定外のエラー: \(error)")
-            }
-        }
+        let result = try await service.run(
+            executable: "/usr/bin/true",
+            workingDirectory: outside.path
+        )
+        XCTAssertEqual(result.exitCode, 0)
     }
 }

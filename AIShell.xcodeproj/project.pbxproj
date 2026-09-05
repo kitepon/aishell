@@ -7,30 +7,120 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0124EFEA0C10373A5DDD889A /* ProjectProfileServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137EAB7F210476076654F907 /* ProjectProfileServiceTests.swift */; };
+		0262EF8191C5DA66515A89E4 /* ChangeSetDiffArtifactBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF84CD75241F47C2C6E2F4 /* ChangeSetDiffArtifactBuilderTests.swift */; };
+		04E71244724D88D02324F493 /* LegacyControlCompatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7FDF135C4C7015673D0DF6 /* LegacyControlCompatStore.swift */; };
+		0529E4DA7BFE10822B426E11 /* SearchContextServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4995FA6CCC252375DDD8338A /* SearchContextServiceTests.swift */; };
+		05BA179B97E2B4539CC992A6 /* StaticImportChangeImpactProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA45B93327A2343E6CF2CD61 /* StaticImportChangeImpactProviderTests.swift */; };
 		0684A30315E568F14F86CA8E /* AIShellCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 38257124B69B9FACDF405DBD /* AIShellCore.framework */; };
 		073957B614C9F4C76748FB8F /* NativeApplicationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F669FC9E9B48E15985D0B9CB /* NativeApplicationService.swift */; };
+		0744BC042742C4FED16A38A3 /* ManagedRunServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32B4D50B32453A6DF5975CE /* ManagedRunServiceTests.swift */; };
+		0827AB9781D958FF3BEC787C /* ProjectProfileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 515698E2E53796BC5667527A /* ProjectProfileService.swift */; };
+		09660856647CE13163396433 /* ChangeSetClientRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68278A69D4A42DC0E88A088 /* ChangeSetClientRegistry.swift */; };
+		0A1A1CE42769E97B67D06D0B /* ChangeImpactService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54AA9A27201337CD8214E67 /* ChangeImpactService.swift */; };
+		0A58B6C26D4187B6FEFEDA21 /* RunCheckInvocationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2834771CE60EBBF05213D2 /* RunCheckInvocationPlan.swift */; };
 		0D5B669ECEB8AC8A9E4CEA68 /* NativeFileServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA426FCBCC075E7316FB155E /* NativeFileServiceTests.swift */; };
 		0F884EE64C7822500D040365 /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E88A5A7FA156279328604E8A /* MCPServer.swift */; };
+		107E00E6A7203B7D2832150F /* ChangeSetCutoverCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C1EC89CD672A6493CE1873 /* ChangeSetCutoverCoordinator.swift */; };
+		12B9BA4B84DCC6AD817CE7A1 /* WorkspaceCheckpointStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B813911E94705212B51B10CE /* WorkspaceCheckpointStoreTests.swift */; };
+		1317756DCB7E0E5D1F837E0A /* SemanticSearchContextServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C92DE7F227AE1259ADD67C /* SemanticSearchContextServiceTests.swift */; };
 		16A786A3DA9AF2E46964824E /* AIShellCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 38257124B69B9FACDF405DBD /* AIShellCore.framework */; };
+		1772BAA10615F5334567FC73 /* ChangeSetQuotaCapacityPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC18823C5D99488DEEF0FA4F /* ChangeSetQuotaCapacityPlannerTests.swift */; };
+		17AF476D8F43538395D66946 /* ChangeSetTransactionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 198AEA206DDB0B4B1EC57A88 /* ChangeSetTransactionStore.swift */; };
+		1AA934844BFDC536E9CE0484 /* ChangeSetQuotaLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF22E40DF2D7D816513988FF /* ChangeSetQuotaLedger.swift */; };
+		1BDA9BE9203AC5454B3CF143 /* WorkspaceWaitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3D2424AD1ACA039081BA9B /* WorkspaceWaitService.swift */; };
+		2776FBF9D672EF8F0B4BE5FF /* workspace-checkpoint-cases.v1.json in Resources */ = {isa = PBXBuildFile; fileRef = B9867469582483BCC9FFF1BA /* workspace-checkpoint-cases.v1.json */; };
+		2A17AE581AFCE943E86D1A8A /* PathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADA198B5D5F0B6BBF10554D2 /* PathResolver.swift */; };
+		2E291712C6D658EB15F50B69 /* RunCheckInvocationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4643A089CD084354AA277A3 /* RunCheckInvocationPlanTests.swift */; };
+		2E8998D624E0F663ABC44B63 /* PathResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A34F4AF568536C9B54443EA3 /* PathResolverTests.swift */; };
+		2F0C7ECF25FA178107BA4787 /* MCPRunCheckAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74051F93240E3C88C8897AEE /* MCPRunCheckAdapter.swift */; };
 		3108423DC622AEFD274BC82E /* AIShellCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 38257124B69B9FACDF405DBD /* AIShellCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		324290553A84E56F652B5306 /* EvidenceStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449F21DA4992FE6ABA9D8A19 /* EvidenceStoreTests.swift */; };
+		33C06DDB3681C73AAD001304 /* MCPServiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624320739F1848665480197F /* MCPServiceRegistry.swift */; };
 		34565FE5925AD901C0652BB5 /* AIShellCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 38257124B69B9FACDF405DBD /* AIShellCore.framework */; };
-		426D5CFD80536AD6BDAE9D6B /* AllowedPathResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E35F1499E28DF831E55FD67 /* AllowedPathResolverTests.swift */; };
+		3D2997BD4EA74019F9411868 /* ChangeImpactServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87E6287728CAD3229A0D173D /* ChangeImpactServiceTests.swift */; };
+		3DF0154D822855DB2DC7669F /* ReservedNamespacePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3031A06DAC3A84A296748E71 /* ReservedNamespacePolicyTests.swift */; };
+		3F1CDC112C68327573A11B73 /* FSEventsObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758605D72C53FACC1898A9F4 /* FSEventsObserver.swift */; };
 		47669FDDCD1AD09CB1A344B4 /* NativeProcessServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7E0320495B39243F38F9B8 /* NativeProcessServiceTests.swift */; };
+		49D2BFBAB3530F66B8A3D169 /* RunCheckFreshnessCacheSafetyNetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4FBE0387FA5586E2DC3CCD5 /* RunCheckFreshnessCacheSafetyNetTests.swift */; };
+		4AB6813F8DEC2BC249A338C7 /* DevelopmentRuntimeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F7A31296FC1C559F1C65704 /* DevelopmentRuntimeService.swift */; };
+		4E22A6AA254180586AFF6C1C /* RuntimeStoreFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3439DBC702487330C1B76AA /* RuntimeStoreFixture.swift */; };
+		503FC068461855F360A6079C /* ObservationJournalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F4F26A2ADD6F5019EDDC4BD /* ObservationJournalTests.swift */; };
+		50F2FCDB4DC2E991CD8FBEEB /* ManagedProcessRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F96E2E141D13AB3869C998CF /* ManagedProcessRegistryTests.swift */; };
+		51AFB60118CAC2C91AA52C3E /* Phase2AcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE498499FCF21AF5B215E28D /* Phase2AcceptanceTests.swift */; };
+		545B4B707D1BF000A2D62755 /* SourceKitLSPServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8C7CD1F9EBF73DB11BF3B3 /* SourceKitLSPServiceTests.swift */; };
+		559D81CEAB6DF42AD19A65CF /* ExternalProcessSupervisorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1046768FAF59E89E7272DA /* ExternalProcessSupervisorTests.swift */; };
 		57E17C63303375025B06AD92 /* MCPTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310BA94C6902392B15D63C82 /* MCPTypes.swift */; };
 		5FF795276275EE6188D91652 /* TemporaryFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AECD4FC7522045E10F86B2D0 /* TemporaryFixture.swift */; };
-		8E12787A512829D7730CC73C /* AllowedPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B0D6399D8A5E707ADB42B3 /* AllowedPathResolver.swift */; };
+		6095C0B38056A29524B502E0 /* InstallationIntegrity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 527F2E274186C90417C80331 /* InstallationIntegrity.swift */; };
+		6285BE3157F5DC97D2CB71CD /* ChangeSetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAFC28F55A83210A9CFF05C2 /* ChangeSetService.swift */; };
+		63053C0AE52EACD97D853336 /* WorkspaceWaitServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8011708C898761F24172BA1D /* WorkspaceWaitServiceTests.swift */; };
+		63AEA9338DDCB35960A132FC /* ChangeSetTransactionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5033A599EF3C3460D9FCE53D /* ChangeSetTransactionStoreTests.swift */; };
+		66013C3F3B367D01C0584B9A /* ManagedRunArtifactStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6831AF09F2F2F93F401EBCC2 /* ManagedRunArtifactStore.swift */; };
+		67309AC47E24E63B8AEB3272 /* WorkspaceCheckpointStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D732DCCE5F69E8468333505B /* WorkspaceCheckpointStore.swift */; };
+		68118DBD8080E8E940A01175 /* EvidenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82B4666C9883879EEA377F13 /* EvidenceStore.swift */; };
+		6904E1D97FA6AD21E30A540C /* ReservedNamespacePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91A83E9D176BC146367733CE /* ReservedNamespacePolicy.swift */; };
+		6E3367054B03A2940B542A4C /* ChangeSetDiffArtifactBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30917E262C9AFF57FBA76A85 /* ChangeSetDiffArtifactBuilder.swift */; };
+		7176DF594FBA7134E696A81B /* ManagedRunSupervisorWire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED98D4E870878CE7C30C8E8 /* ManagedRunSupervisorWire.swift */; };
+		71ED2B1E3275D6C604421D6B /* WorkspaceStateRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB8436EE9E4E7C2BC56E4AD9 /* WorkspaceStateRuntimeTests.swift */; };
+		7233B59B31717811183854A4 /* ChangeSetClientRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5C6B1701550553507331EB8 /* ChangeSetClientRegistryTests.swift */; };
+		73297CDBDA89F349C978E1D1 /* FocusedCheckServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1EE658E847D9FF565A49CA5 /* FocusedCheckServiceTests.swift */; };
+		7591D5B2010CFEA50CB81E44 /* DiagnosticAdapterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA9D2A8B444F35DA8DEDB156 /* DiagnosticAdapterService.swift */; };
+		76555FE9942F7E5511DB1FB0 /* ExternalProcessSupervisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52CD23413905FDE86077AF5 /* ExternalProcessSupervisor.swift */; };
+		79D375A50A6794A90F9EA178 /* ContextCompilerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67ECC6959F9ED487E4D33A54 /* ContextCompilerService.swift */; };
+		80EC17B049004CFCF3AF2974 /* RunCheckResolutionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E591C16B36194B5B2AA2DC2B /* RunCheckResolutionService.swift */; };
+		82CAB6D165AA7389D2B69D3D /* ChangeSetCutoverCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA1C61C7C966A8F17310FDF /* ChangeSetCutoverCoordinatorTests.swift */; };
+		82E7B78696B11333A7BE743B /* WorkspaceStateRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC234F760968702CDB0A9176 /* WorkspaceStateRuntime.swift */; };
+		8356B689EEEC30498815D728 /* BuildManifestChangeImpactProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E04EF8B6DBAB3697511F8E7 /* BuildManifestChangeImpactProvider.swift */; };
+		85B61970B675E554B62A678E /* DepfileChangeImpactProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6C6D88194F323A9650FCCBA /* DepfileChangeImpactProvider.swift */; };
+		87DF30D61EF21A0B1FE3B7C0 /* Phase3AcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44ED3D12161342D974419154 /* Phase3AcceptanceTests.swift */; };
+		898FF0CCB4385D8D52F5C981 /* SourceKitLSPService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B376653F69DE1D45E2CB19A4 /* SourceKitLSPService.swift */; };
+		8BE0019FE780FB8C7A87B09A /* SearchContextService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD72741C28C27EE04D2A9B0 /* SearchContextService.swift */; };
+		8D843204813D4EA288D59EE8 /* RunCheckResolutionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A01344D9E568D91D817F39 /* RunCheckResolutionServiceTests.swift */; };
+		943DAEDEC92508F051E9A4FA /* ChangeSetServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93A622D1243859E1313FE6DC /* ChangeSetServiceTests.swift */; };
+		97768E17E6575ECC2CF9D7FC /* ChangeSetQuotaLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D981EC222F0DD53C24EBB6F5 /* ChangeSetQuotaLedgerTests.swift */; };
+		98DC2E9B9A788966B0D9F83E /* ManagedRunService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0EAD29E04AC00DB04A30FAA /* ManagedRunService.swift */; };
 		9C7107FC94A7DA0930472AF5 /* NativeApplicationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271519BEEF96B04B43DCAC55 /* NativeApplicationServiceTests.swift */; };
+		9E3BC87C2144F6C4922CAC4D /* FactoryDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D64FD9F335DDBD546E13A8A /* FactoryDiagnostics.swift */; };
 		9E5C15BB6051A16F4161B304 /* RuntimeStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DA22E64A3C2ADAD117925D /* RuntimeStoreTests.swift */; };
+		9FB603DC08292D10C124D398 /* CheckFreshnessCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70FA1708889B8E31E27E90CC /* CheckFreshnessCache.swift */; };
+		A1E0A17DD1F540AF6F58AF39 /* ManagedProcessRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6117D31054105747DE064C57 /* ManagedProcessRegistry.swift */; };
+		A266259AD51AFD690EB6540C /* LegacyControlCompatStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52DD98ABD5A9D6F5F308392 /* LegacyControlCompatStoreTests.swift */; };
+		AAA4AF34AFD92D6722816D62 /* CheckFreshnessCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB5879558ABFD1702143FA78 /* CheckFreshnessCacheTests.swift */; };
 		AB6DDC9D301AC0CF9EE206B7 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9AD8F95AFB44E1BB7CF501C /* Models.swift */; };
+		AE46E5EA7C44843ACCB20CC7 /* WorkspaceDeltaJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 831487B54C72E161A8DD6114 /* WorkspaceDeltaJournal.swift */; };
+		AEEC6AC6112BED15C391ED70 /* DevelopmentRuntimeServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439D212ABD4ACAB58A7A2E23 /* DevelopmentRuntimeServiceTests.swift */; };
+		B22A2ECF5210FEE0036A517D /* InstallationIntegrityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D95EFF70308C40A05A1B7D /* InstallationIntegrityTests.swift */; };
+		BBF2E11ED3A7BABA3245697C /* FactoryDiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2333EC1C15F4BB516D5B6A12 /* FactoryDiagnosticsTests.swift */; };
 		BC51FEF7E491BE4008DCCF00 /* AIShellApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60B89A09C86CD3F1AEBAD9DC /* AIShellApp.swift */; };
+		BD834A7FA6DBD433887039A1 /* ObservationJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C4A344FFA76D7E139876185 /* ObservationJournal.swift */; };
+		BEE34C6AFDB45A15927357E5 /* ContextCompilerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A4B0D2FF8C63D10FD2BFB4 /* ContextCompilerServiceTests.swift */; };
 		BF1C7C57E552B6E237965C47 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED0671DEBD43FF8ADDC2C0BE /* ContentView.swift */; };
+		C14D1A3B0E5095FD76F73B15 /* BuildManifestChangeImpactProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B483E9E47C4C2713D7996478 /* BuildManifestChangeImpactProviderTests.swift */; };
 		C25918C93D1A2980C547B90B /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DC41C1D4E57364243292D7 /* JSONValue.swift */; };
+		C73023268EBD29590931E2B4 /* ManagedArtifactQueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C378DA6D51C5FC67235245 /* ManagedArtifactQueryService.swift */; };
 		C805377227A4700BE66A680A /* AIShellCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 38257124B69B9FACDF405DBD /* AIShellCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C94B0064551E2EAA72A55DCD /* ChangeSetQuotaCapacityPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD7558B3EF222A3BAC2F837 /* ChangeSetQuotaCapacityPlanner.swift */; };
+		CD486E8063218EA94E0C54A4 /* GitContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D567B8FC21566E2EBF922C /* GitContextProviderTests.swift */; };
+		CE1CD54E6F7A0952D6349707 /* ArtifactQueryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 246ADDC961333E0C8DA21073 /* ArtifactQueryServiceTests.swift */; };
 		CE78BF62E357997DFA55DD9D /* AIShellMCPMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02341502229A669603CF38E5 /* AIShellMCPMain.swift */; };
+		D0A265D6A0EECCF5731C56C7 /* SemanticSearchContextService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A988B4840DE5F9A580E81B /* SemanticSearchContextService.swift */; };
+		D0B3D497F56FAD3E5379F857 /* FocusedCheckService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1FF196EF52598B05A2F6B6 /* FocusedCheckService.swift */; };
+		D4C74E7A322F2ED8AF04920D /* StaticImportChangeImpactProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FA9310DE394EC4AAA14782D /* StaticImportChangeImpactProvider.swift */; };
 		D8B5D46D2C3B3ABD63D9BB77 /* NativeProcessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF521207C85E79A8553BE7E /* NativeProcessService.swift */; };
 		D8EE2595500CDAD5FCDB6221 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 965C5D8F843B2CEE161C822B /* AppModel.swift */; };
+		DA60F81C44A190D543546B29 /* WorkspaceWarmRestartBenchmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1894095D85B465332558DAD3 /* WorkspaceWarmRestartBenchmarkTests.swift */; };
+		DB74CAD0E01FFEEF83E6DBEC /* DiagnosticAdapterServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C382A7864E38C1D85B2DCE13 /* DiagnosticAdapterServiceTests.swift */; };
+		E15AAF0C7D8AECA4DC6F4F93 /* ManagedRunArtifactStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE8813D5FB38E8CE9F73BD4 /* ManagedRunArtifactStoreTests.swift */; };
 		E1B4B8CC1611A8ADBDF42B96 /* NativeFileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA38A9A487C91B1B5008E460 /* NativeFileService.swift */; };
+		EA40807EDC6E2CCB6883255C /* GitContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4302A70706AA93BC402BA573 /* GitContextProvider.swift */; };
+		EADE4125A73E999416B83B70 /* MCPRequestScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BED8BF4A25D3A16549BEA03 /* MCPRequestScheduler.swift */; };
+		EF9EDEA61B1FC8939E057C3F /* ManagedProcessSafetyNetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F16D6B75AF4671CE5F13BA /* ManagedProcessSafetyNetTests.swift */; };
 		EFF92903F2358A33571A4098 /* RuntimeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F09BD2EE36070BEC758EF574 /* RuntimeStore.swift */; };
+		F883DAD0350C5ACAFBC1705E /* ManagedProcessProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA6404AB5FBA7342DC32592 /* ManagedProcessProtocol.swift */; };
+		FA4B6D11AD263C7D63E3B232 /* ArtifactQueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B9D4B7764FB9C0A4411407 /* ArtifactQueryService.swift */; };
+		FCF948AE13308654134ED561 /* ChangeSetSafetyNetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F08B1325B5BCA33D9710B5 /* ChangeSetSafetyNetTests.swift */; };
+		FF3B8E57F5A54B50DE2CEBB1 /* DepfileChangeImpactProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4EFB0A1D16E880320E8778 /* DepfileChangeImpactProviderTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,29 +173,119 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		00A01344D9E568D91D817F39 /* RunCheckResolutionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCheckResolutionServiceTests.swift; sourceTree = "<group>"; };
 		02341502229A669603CF38E5 /* AIShellMCPMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIShellMCPMain.swift; sourceTree = "<group>"; };
+		06A4B0D2FF8C63D10FD2BFB4 /* ContextCompilerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextCompilerServiceTests.swift; sourceTree = "<group>"; };
+		0C4A344FFA76D7E139876185 /* ObservationJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationJournal.swift; sourceTree = "<group>"; };
+		0CBF84CD75241F47C2C6E2F4 /* ChangeSetDiffArtifactBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetDiffArtifactBuilderTests.swift; sourceTree = "<group>"; };
+		0DA1C61C7C966A8F17310FDF /* ChangeSetCutoverCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetCutoverCoordinatorTests.swift; sourceTree = "<group>"; };
+		0E2834771CE60EBBF05213D2 /* RunCheckInvocationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCheckInvocationPlan.swift; sourceTree = "<group>"; };
+		137EAB7F210476076654F907 /* ProjectProfileServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectProfileServiceTests.swift; sourceTree = "<group>"; };
 		17E684105A1E4C92D6FEC8E0 /* AIShellMCP */ = {isa = PBXFileReference; includeInIndex = 0; path = AIShellMCP; sourceTree = BUILT_PRODUCTS_DIR; };
+		1894095D85B465332558DAD3 /* WorkspaceWarmRestartBenchmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceWarmRestartBenchmarkTests.swift; sourceTree = "<group>"; };
+		198AEA206DDB0B4B1EC57A88 /* ChangeSetTransactionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetTransactionStore.swift; sourceTree = "<group>"; };
+		1E04EF8B6DBAB3697511F8E7 /* BuildManifestChangeImpactProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildManifestChangeImpactProvider.swift; sourceTree = "<group>"; };
+		1F4F26A2ADD6F5019EDDC4BD /* ObservationJournalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationJournalTests.swift; sourceTree = "<group>"; };
+		21C378DA6D51C5FC67235245 /* ManagedArtifactQueryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedArtifactQueryService.swift; sourceTree = "<group>"; };
+		2333EC1C15F4BB516D5B6A12 /* FactoryDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FactoryDiagnosticsTests.swift; sourceTree = "<group>"; };
+		246ADDC961333E0C8DA21073 /* ArtifactQueryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactQueryServiceTests.swift; sourceTree = "<group>"; };
+		24C92DE7F227AE1259ADD67C /* SemanticSearchContextServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchContextServiceTests.swift; sourceTree = "<group>"; };
 		271519BEEF96B04B43DCAC55 /* NativeApplicationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeApplicationServiceTests.swift; sourceTree = "<group>"; };
+		27D567B8FC21566E2EBF922C /* GitContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitContextProviderTests.swift; sourceTree = "<group>"; };
+		2BED8BF4A25D3A16549BEA03 /* MCPRequestScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPRequestScheduler.swift; sourceTree = "<group>"; };
+		3031A06DAC3A84A296748E71 /* ReservedNamespacePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReservedNamespacePolicyTests.swift; sourceTree = "<group>"; };
+		30917E262C9AFF57FBA76A85 /* ChangeSetDiffArtifactBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetDiffArtifactBuilder.swift; sourceTree = "<group>"; };
 		310BA94C6902392B15D63C82 /* MCPTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPTypes.swift; sourceTree = "<group>"; };
 		37CB846EB58D9DBC4FC5826C /* AIShellCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AIShellCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		38257124B69B9FACDF405DBD /* AIShellCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = AIShellCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A7FDF135C4C7015673D0DF6 /* LegacyControlCompatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyControlCompatStore.swift; sourceTree = "<group>"; };
+		3F1046768FAF59E89E7272DA /* ExternalProcessSupervisorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalProcessSupervisorTests.swift; sourceTree = "<group>"; };
+		4302A70706AA93BC402BA573 /* GitContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitContextProvider.swift; sourceTree = "<group>"; };
+		439D212ABD4ACAB58A7A2E23 /* DevelopmentRuntimeServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevelopmentRuntimeServiceTests.swift; sourceTree = "<group>"; };
+		449F21DA4992FE6ABA9D8A19 /* EvidenceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceStoreTests.swift; sourceTree = "<group>"; };
+		44ED3D12161342D974419154 /* Phase3AcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase3AcceptanceTests.swift; sourceTree = "<group>"; };
+		4995FA6CCC252375DDD8338A /* SearchContextServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchContextServiceTests.swift; sourceTree = "<group>"; };
+		4CD7558B3EF222A3BAC2F837 /* ChangeSetQuotaCapacityPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetQuotaCapacityPlanner.swift; sourceTree = "<group>"; };
 		4CF521207C85E79A8553BE7E /* NativeProcessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeProcessService.swift; sourceTree = "<group>"; };
+		5033A599EF3C3460D9FCE53D /* ChangeSetTransactionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetTransactionStoreTests.swift; sourceTree = "<group>"; };
+		515698E2E53796BC5667527A /* ProjectProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectProfileService.swift; sourceTree = "<group>"; };
+		527F2E274186C90417C80331 /* InstallationIntegrity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallationIntegrity.swift; sourceTree = "<group>"; };
+		5B8C7CD1F9EBF73DB11BF3B3 /* SourceKitLSPServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceKitLSPServiceTests.swift; sourceTree = "<group>"; };
 		60B89A09C86CD3F1AEBAD9DC /* AIShellApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIShellApp.swift; sourceTree = "<group>"; };
-		6E35F1499E28DF831E55FD67 /* AllowedPathResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllowedPathResolverTests.swift; sourceTree = "<group>"; };
+		6117D31054105747DE064C57 /* ManagedProcessRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedProcessRegistry.swift; sourceTree = "<group>"; };
+		624320739F1848665480197F /* MCPServiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServiceRegistry.swift; sourceTree = "<group>"; };
+		65B9D4B7764FB9C0A4411407 /* ArtifactQueryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactQueryService.swift; sourceTree = "<group>"; };
+		67ECC6959F9ED487E4D33A54 /* ContextCompilerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextCompilerService.swift; sourceTree = "<group>"; };
+		6831AF09F2F2F93F401EBCC2 /* ManagedRunArtifactStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedRunArtifactStore.swift; sourceTree = "<group>"; };
+		6D64FD9F335DDBD546E13A8A /* FactoryDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FactoryDiagnostics.swift; sourceTree = "<group>"; };
+		70FA1708889B8E31E27E90CC /* CheckFreshnessCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckFreshnessCache.swift; sourceTree = "<group>"; };
+		74051F93240E3C88C8897AEE /* MCPRunCheckAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPRunCheckAdapter.swift; sourceTree = "<group>"; };
 		74DA22E64A3C2ADAD117925D /* RuntimeStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStoreTests.swift; sourceTree = "<group>"; };
+		758605D72C53FACC1898A9F4 /* FSEventsObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSEventsObserver.swift; sourceTree = "<group>"; };
+		7AE8813D5FB38E8CE9F73BD4 /* ManagedRunArtifactStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedRunArtifactStoreTests.swift; sourceTree = "<group>"; };
+		7ED98D4E870878CE7C30C8E8 /* ManagedRunSupervisorWire.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedRunSupervisorWire.swift; sourceTree = "<group>"; };
+		7F7A31296FC1C559F1C65704 /* DevelopmentRuntimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevelopmentRuntimeService.swift; sourceTree = "<group>"; };
+		8011708C898761F24172BA1D /* WorkspaceWaitServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceWaitServiceTests.swift; sourceTree = "<group>"; };
+		82B4666C9883879EEA377F13 /* EvidenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceStore.swift; sourceTree = "<group>"; };
+		831487B54C72E161A8DD6114 /* WorkspaceDeltaJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDeltaJournal.swift; sourceTree = "<group>"; };
+		87E6287728CAD3229A0D173D /* ChangeImpactServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeImpactServiceTests.swift; sourceTree = "<group>"; };
+		88C1EC89CD672A6493CE1873 /* ChangeSetCutoverCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetCutoverCoordinator.swift; sourceTree = "<group>"; };
+		8F3D2424AD1ACA039081BA9B /* WorkspaceWaitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceWaitService.swift; sourceTree = "<group>"; };
+		8FA9310DE394EC4AAA14782D /* StaticImportChangeImpactProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticImportChangeImpactProvider.swift; sourceTree = "<group>"; };
+		91A83E9D176BC146367733CE /* ReservedNamespacePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReservedNamespacePolicy.swift; sourceTree = "<group>"; };
+		93A622D1243859E1313FE6DC /* ChangeSetServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetServiceTests.swift; sourceTree = "<group>"; };
 		965C5D8F843B2CEE161C822B /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		9BD72741C28C27EE04D2A9B0 /* SearchContextService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchContextService.swift; sourceTree = "<group>"; };
+		A1EE658E847D9FF565A49CA5 /* FocusedCheckServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusedCheckServiceTests.swift; sourceTree = "<group>"; };
+		A32B4D50B32453A6DF5975CE /* ManagedRunServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedRunServiceTests.swift; sourceTree = "<group>"; };
+		A34F4AF568536C9B54443EA3 /* PathResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathResolverTests.swift; sourceTree = "<group>"; };
+		A52DD98ABD5A9D6F5F308392 /* LegacyControlCompatStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyControlCompatStoreTests.swift; sourceTree = "<group>"; };
 		A9AD8F95AFB44E1BB7CF501C /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		ADA198B5D5F0B6BBF10554D2 /* PathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathResolver.swift; sourceTree = "<group>"; };
 		AECD4FC7522045E10F86B2D0 /* TemporaryFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFixture.swift; sourceTree = "<group>"; };
+		B376653F69DE1D45E2CB19A4 /* SourceKitLSPService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceKitLSPService.swift; sourceTree = "<group>"; };
+		B4643A089CD084354AA277A3 /* RunCheckInvocationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCheckInvocationPlanTests.swift; sourceTree = "<group>"; };
+		B483E9E47C4C2713D7996478 /* BuildManifestChangeImpactProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildManifestChangeImpactProviderTests.swift; sourceTree = "<group>"; };
+		B4F08B1325B5BCA33D9710B5 /* ChangeSetSafetyNetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetSafetyNetTests.swift; sourceTree = "<group>"; };
+		B813911E94705212B51B10CE /* WorkspaceCheckpointStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCheckpointStoreTests.swift; sourceTree = "<group>"; };
 		B82343B6490225159AB6BFB7 /* AIShell.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AIShell.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B9867469582483BCC9FFF1BA /* workspace-checkpoint-cases.v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "workspace-checkpoint-cases.v1.json"; sourceTree = "<group>"; };
+		BA9D2A8B444F35DA8DEDB156 /* DiagnosticAdapterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticAdapterService.swift; sourceTree = "<group>"; };
+		BC18823C5D99488DEEF0FA4F /* ChangeSetQuotaCapacityPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetQuotaCapacityPlannerTests.swift; sourceTree = "<group>"; };
+		C0A988B4840DE5F9A580E81B /* SemanticSearchContextService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchContextService.swift; sourceTree = "<group>"; };
+		C382A7864E38C1D85B2DCE13 /* DiagnosticAdapterServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticAdapterServiceTests.swift; sourceTree = "<group>"; };
+		C5C6B1701550553507331EB8 /* ChangeSetClientRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetClientRegistryTests.swift; sourceTree = "<group>"; };
+		C68278A69D4A42DC0E88A088 /* ChangeSetClientRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetClientRegistry.swift; sourceTree = "<group>"; };
+		C6C6D88194F323A9650FCCBA /* DepfileChangeImpactProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepfileChangeImpactProvider.swift; sourceTree = "<group>"; };
+		CA45B93327A2343E6CF2CD61 /* StaticImportChangeImpactProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticImportChangeImpactProviderTests.swift; sourceTree = "<group>"; };
+		CBA6404AB5FBA7342DC32592 /* ManagedProcessProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedProcessProtocol.swift; sourceTree = "<group>"; };
+		CC234F760968702CDB0A9176 /* WorkspaceStateRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStateRuntime.swift; sourceTree = "<group>"; };
 		CD7E0320495B39243F38F9B8 /* NativeProcessServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeProcessServiceTests.swift; sourceTree = "<group>"; };
+		CF22E40DF2D7D816513988FF /* ChangeSetQuotaLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetQuotaLedger.swift; sourceTree = "<group>"; };
+		D4FBE0387FA5586E2DC3CCD5 /* RunCheckFreshnessCacheSafetyNetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCheckFreshnessCacheSafetyNetTests.swift; sourceTree = "<group>"; };
+		D52CD23413905FDE86077AF5 /* ExternalProcessSupervisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalProcessSupervisor.swift; sourceTree = "<group>"; };
+		D732DCCE5F69E8468333505B /* WorkspaceCheckpointStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCheckpointStore.swift; sourceTree = "<group>"; };
+		D981EC222F0DD53C24EBB6F5 /* ChangeSetQuotaLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetQuotaLedgerTests.swift; sourceTree = "<group>"; };
+		DB4EFB0A1D16E880320E8778 /* DepfileChangeImpactProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepfileChangeImpactProviderTests.swift; sourceTree = "<group>"; };
+		E0EAD29E04AC00DB04A30FAA /* ManagedRunService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedRunService.swift; sourceTree = "<group>"; };
 		E1DC41C1D4E57364243292D7 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
+		E3439DBC702487330C1B76AA /* RuntimeStoreFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStoreFixture.swift; sourceTree = "<group>"; };
+		E591C16B36194B5B2AA2DC2B /* RunCheckResolutionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCheckResolutionService.swift; sourceTree = "<group>"; };
 		E88A5A7FA156279328604E8A /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
+		EA1FF196EF52598B05A2F6B6 /* FocusedCheckService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusedCheckService.swift; sourceTree = "<group>"; };
+		EAFC28F55A83210A9CFF05C2 /* ChangeSetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeSetService.swift; sourceTree = "<group>"; };
 		ED0671DEBD43FF8ADDC2C0BE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		F09BD2EE36070BEC758EF574 /* RuntimeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStore.swift; sourceTree = "<group>"; };
-		F2B0D6399D8A5E707ADB42B3 /* AllowedPathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllowedPathResolver.swift; sourceTree = "<group>"; };
+		F3F16D6B75AF4671CE5F13BA /* ManagedProcessSafetyNetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedProcessSafetyNetTests.swift; sourceTree = "<group>"; };
+		F54AA9A27201337CD8214E67 /* ChangeImpactService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeImpactService.swift; sourceTree = "<group>"; };
 		F669FC9E9B48E15985D0B9CB /* NativeApplicationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeApplicationService.swift; sourceTree = "<group>"; };
+		F96E2E141D13AB3869C998CF /* ManagedProcessRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedProcessRegistryTests.swift; sourceTree = "<group>"; };
+		F9D95EFF70308C40A05A1B7D /* InstallationIntegrityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallationIntegrityTests.swift; sourceTree = "<group>"; };
 		FA38A9A487C91B1B5008E460 /* NativeFileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFileService.swift; sourceTree = "<group>"; };
 		FA426FCBCC075E7316FB155E /* NativeFileServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFileServiceTests.swift; sourceTree = "<group>"; };
+		FB5879558ABFD1702143FA78 /* CheckFreshnessCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckFreshnessCacheTests.swift; sourceTree = "<group>"; };
+		FB8436EE9E4E7C2BC56E4AD9 /* WorkspaceStateRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStateRuntimeTests.swift; sourceTree = "<group>"; };
+		FE498499FCF21AF5B215E28D /* Phase2AcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase2AcceptanceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -136,6 +316,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		01C4F3871714EABC1916ED66 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				B9867469582483BCC9FFF1BA /* workspace-checkpoint-cases.v1.json */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
 		0C19D1EF3A7B55B2A58D092B /* Sources */ = {
 			isa = PBXGroup;
 			children = (
@@ -157,12 +345,57 @@
 		13C522D3A6575A7EB50A50B9 /* AIShellCoreTests */ = {
 			isa = PBXGroup;
 			children = (
-				6E35F1499E28DF831E55FD67 /* AllowedPathResolverTests.swift */,
+				246ADDC961333E0C8DA21073 /* ArtifactQueryServiceTests.swift */,
+				B483E9E47C4C2713D7996478 /* BuildManifestChangeImpactProviderTests.swift */,
+				87E6287728CAD3229A0D173D /* ChangeImpactServiceTests.swift */,
+				C5C6B1701550553507331EB8 /* ChangeSetClientRegistryTests.swift */,
+				0DA1C61C7C966A8F17310FDF /* ChangeSetCutoverCoordinatorTests.swift */,
+				0CBF84CD75241F47C2C6E2F4 /* ChangeSetDiffArtifactBuilderTests.swift */,
+				BC18823C5D99488DEEF0FA4F /* ChangeSetQuotaCapacityPlannerTests.swift */,
+				D981EC222F0DD53C24EBB6F5 /* ChangeSetQuotaLedgerTests.swift */,
+				B4F08B1325B5BCA33D9710B5 /* ChangeSetSafetyNetTests.swift */,
+				93A622D1243859E1313FE6DC /* ChangeSetServiceTests.swift */,
+				5033A599EF3C3460D9FCE53D /* ChangeSetTransactionStoreTests.swift */,
+				FB5879558ABFD1702143FA78 /* CheckFreshnessCacheTests.swift */,
+				06A4B0D2FF8C63D10FD2BFB4 /* ContextCompilerServiceTests.swift */,
+				DB4EFB0A1D16E880320E8778 /* DepfileChangeImpactProviderTests.swift */,
+				439D212ABD4ACAB58A7A2E23 /* DevelopmentRuntimeServiceTests.swift */,
+				C382A7864E38C1D85B2DCE13 /* DiagnosticAdapterServiceTests.swift */,
+				449F21DA4992FE6ABA9D8A19 /* EvidenceStoreTests.swift */,
+				3F1046768FAF59E89E7272DA /* ExternalProcessSupervisorTests.swift */,
+				2333EC1C15F4BB516D5B6A12 /* FactoryDiagnosticsTests.swift */,
+				A1EE658E847D9FF565A49CA5 /* FocusedCheckServiceTests.swift */,
+				27D567B8FC21566E2EBF922C /* GitContextProviderTests.swift */,
+				F9D95EFF70308C40A05A1B7D /* InstallationIntegrityTests.swift */,
+				A52DD98ABD5A9D6F5F308392 /* LegacyControlCompatStoreTests.swift */,
+				F96E2E141D13AB3869C998CF /* ManagedProcessRegistryTests.swift */,
+				F3F16D6B75AF4671CE5F13BA /* ManagedProcessSafetyNetTests.swift */,
+				7AE8813D5FB38E8CE9F73BD4 /* ManagedRunArtifactStoreTests.swift */,
+				A32B4D50B32453A6DF5975CE /* ManagedRunServiceTests.swift */,
 				271519BEEF96B04B43DCAC55 /* NativeApplicationServiceTests.swift */,
 				FA426FCBCC075E7316FB155E /* NativeFileServiceTests.swift */,
 				CD7E0320495B39243F38F9B8 /* NativeProcessServiceTests.swift */,
+				1F4F26A2ADD6F5019EDDC4BD /* ObservationJournalTests.swift */,
+				A34F4AF568536C9B54443EA3 /* PathResolverTests.swift */,
+				FE498499FCF21AF5B215E28D /* Phase2AcceptanceTests.swift */,
+				44ED3D12161342D974419154 /* Phase3AcceptanceTests.swift */,
+				137EAB7F210476076654F907 /* ProjectProfileServiceTests.swift */,
+				3031A06DAC3A84A296748E71 /* ReservedNamespacePolicyTests.swift */,
+				D4FBE0387FA5586E2DC3CCD5 /* RunCheckFreshnessCacheSafetyNetTests.swift */,
+				B4643A089CD084354AA277A3 /* RunCheckInvocationPlanTests.swift */,
+				00A01344D9E568D91D817F39 /* RunCheckResolutionServiceTests.swift */,
+				E3439DBC702487330C1B76AA /* RuntimeStoreFixture.swift */,
 				74DA22E64A3C2ADAD117925D /* RuntimeStoreTests.swift */,
+				4995FA6CCC252375DDD8338A /* SearchContextServiceTests.swift */,
+				24C92DE7F227AE1259ADD67C /* SemanticSearchContextServiceTests.swift */,
+				5B8C7CD1F9EBF73DB11BF3B3 /* SourceKitLSPServiceTests.swift */,
+				CA45B93327A2343E6CF2CD61 /* StaticImportChangeImpactProviderTests.swift */,
 				AECD4FC7522045E10F86B2D0 /* TemporaryFixture.swift */,
+				B813911E94705212B51B10CE /* WorkspaceCheckpointStoreTests.swift */,
+				FB8436EE9E4E7C2BC56E4AD9 /* WorkspaceStateRuntimeTests.swift */,
+				8011708C898761F24172BA1D /* WorkspaceWaitServiceTests.swift */,
+				1894095D85B465332558DAD3 /* WorkspaceWarmRestartBenchmarkTests.swift */,
+				01C4F3871714EABC1916ED66 /* Fixtures */,
 			);
 			path = AIShellCoreTests;
 			sourceTree = "<group>";
@@ -181,7 +414,10 @@
 			children = (
 				02341502229A669603CF38E5 /* AIShellMCPMain.swift */,
 				E1DC41C1D4E57364243292D7 /* JSONValue.swift */,
+				2BED8BF4A25D3A16549BEA03 /* MCPRequestScheduler.swift */,
+				74051F93240E3C88C8897AEE /* MCPRunCheckAdapter.swift */,
 				E88A5A7FA156279328604E8A /* MCPServer.swift */,
+				624320739F1848665480197F /* MCPServiceRegistry.swift */,
 				310BA94C6902392B15D63C82 /* MCPTypes.swift */,
 			);
 			path = AIShellMCP;
@@ -200,12 +436,54 @@
 		6D74751F24E3CC6009A93654 /* AIShellCore */ = {
 			isa = PBXGroup;
 			children = (
-				F2B0D6399D8A5E707ADB42B3 /* AllowedPathResolver.swift */,
+				65B9D4B7764FB9C0A4411407 /* ArtifactQueryService.swift */,
+				1E04EF8B6DBAB3697511F8E7 /* BuildManifestChangeImpactProvider.swift */,
+				F54AA9A27201337CD8214E67 /* ChangeImpactService.swift */,
+				C68278A69D4A42DC0E88A088 /* ChangeSetClientRegistry.swift */,
+				88C1EC89CD672A6493CE1873 /* ChangeSetCutoverCoordinator.swift */,
+				30917E262C9AFF57FBA76A85 /* ChangeSetDiffArtifactBuilder.swift */,
+				4CD7558B3EF222A3BAC2F837 /* ChangeSetQuotaCapacityPlanner.swift */,
+				CF22E40DF2D7D816513988FF /* ChangeSetQuotaLedger.swift */,
+				EAFC28F55A83210A9CFF05C2 /* ChangeSetService.swift */,
+				198AEA206DDB0B4B1EC57A88 /* ChangeSetTransactionStore.swift */,
+				70FA1708889B8E31E27E90CC /* CheckFreshnessCache.swift */,
+				67ECC6959F9ED487E4D33A54 /* ContextCompilerService.swift */,
+				C6C6D88194F323A9650FCCBA /* DepfileChangeImpactProvider.swift */,
+				7F7A31296FC1C559F1C65704 /* DevelopmentRuntimeService.swift */,
+				BA9D2A8B444F35DA8DEDB156 /* DiagnosticAdapterService.swift */,
+				82B4666C9883879EEA377F13 /* EvidenceStore.swift */,
+				D52CD23413905FDE86077AF5 /* ExternalProcessSupervisor.swift */,
+				6D64FD9F335DDBD546E13A8A /* FactoryDiagnostics.swift */,
+				EA1FF196EF52598B05A2F6B6 /* FocusedCheckService.swift */,
+				758605D72C53FACC1898A9F4 /* FSEventsObserver.swift */,
+				4302A70706AA93BC402BA573 /* GitContextProvider.swift */,
+				527F2E274186C90417C80331 /* InstallationIntegrity.swift */,
+				3A7FDF135C4C7015673D0DF6 /* LegacyControlCompatStore.swift */,
+				21C378DA6D51C5FC67235245 /* ManagedArtifactQueryService.swift */,
+				CBA6404AB5FBA7342DC32592 /* ManagedProcessProtocol.swift */,
+				6117D31054105747DE064C57 /* ManagedProcessRegistry.swift */,
+				6831AF09F2F2F93F401EBCC2 /* ManagedRunArtifactStore.swift */,
+				E0EAD29E04AC00DB04A30FAA /* ManagedRunService.swift */,
+				7ED98D4E870878CE7C30C8E8 /* ManagedRunSupervisorWire.swift */,
 				A9AD8F95AFB44E1BB7CF501C /* Models.swift */,
 				F669FC9E9B48E15985D0B9CB /* NativeApplicationService.swift */,
 				FA38A9A487C91B1B5008E460 /* NativeFileService.swift */,
 				4CF521207C85E79A8553BE7E /* NativeProcessService.swift */,
+				0C4A344FFA76D7E139876185 /* ObservationJournal.swift */,
+				ADA198B5D5F0B6BBF10554D2 /* PathResolver.swift */,
+				515698E2E53796BC5667527A /* ProjectProfileService.swift */,
+				91A83E9D176BC146367733CE /* ReservedNamespacePolicy.swift */,
+				0E2834771CE60EBBF05213D2 /* RunCheckInvocationPlan.swift */,
+				E591C16B36194B5B2AA2DC2B /* RunCheckResolutionService.swift */,
 				F09BD2EE36070BEC758EF574 /* RuntimeStore.swift */,
+				9BD72741C28C27EE04D2A9B0 /* SearchContextService.swift */,
+				C0A988B4840DE5F9A580E81B /* SemanticSearchContextService.swift */,
+				B376653F69DE1D45E2CB19A4 /* SourceKitLSPService.swift */,
+				8FA9310DE394EC4AAA14782D /* StaticImportChangeImpactProvider.swift */,
+				D732DCCE5F69E8468333505B /* WorkspaceCheckpointStore.swift */,
+				831487B54C72E161A8DD6114 /* WorkspaceDeltaJournal.swift */,
+				CC234F760968702CDB0A9176 /* WorkspaceStateRuntime.swift */,
+				8F3D2424AD1ACA039081BA9B /* WorkspaceWaitService.swift */,
 			);
 			path = AIShellCore;
 			sourceTree = "<group>";
@@ -285,6 +563,7 @@
 			buildConfigurationList = FC37409F1B4363E05CC0BCA2 /* Build configuration list for PBXNativeTarget "AIShellCoreTests" */;
 			buildPhases = (
 				9B4F4C01B50A3F15021AD50D /* Sources */,
+				0D3B778B02FA890ACFAB7A78 /* Resources */,
 				5B6FEFEAB8EEB8610F661E12 /* Frameworks */,
 				BAEBDD6B99F42D8C57553EAA /* Embed Frameworks */,
 			);
@@ -325,13 +604,24 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7FA17DDF469DA51E95055A81 /* AIShell */,
 				4E5F692639F732376840880D /* AIShellCore */,
-				E986C688A207E4EF296D260D /* AIShellCoreTests */,
+				7FA17DDF469DA51E95055A81 /* AIShell */,
 				59CA2896241C505801350971 /* AIShellMCP */,
+				E986C688A207E4EF296D260D /* AIShellCoreTests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		0D3B778B02FA890ACFAB7A78 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2776FBF9D672EF8F0B4BE5FF /* workspace-checkpoint-cases.v1.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0D74B34BE34BAF63AF2AEC5D /* Sources */ = {
@@ -350,7 +640,10 @@
 			files = (
 				CE78BF62E357997DFA55DD9D /* AIShellMCPMain.swift in Sources */,
 				C25918C93D1A2980C547B90B /* JSONValue.swift in Sources */,
+				EADE4125A73E999416B83B70 /* MCPRequestScheduler.swift in Sources */,
+				2F0C7ECF25FA178107BA4787 /* MCPRunCheckAdapter.swift in Sources */,
 				0F884EE64C7822500D040365 /* MCPServer.swift in Sources */,
+				33C06DDB3681C73AAD001304 /* MCPServiceRegistry.swift in Sources */,
 				57E17C63303375025B06AD92 /* MCPTypes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -359,12 +652,56 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				426D5CFD80536AD6BDAE9D6B /* AllowedPathResolverTests.swift in Sources */,
+				CE1CD54E6F7A0952D6349707 /* ArtifactQueryServiceTests.swift in Sources */,
+				C14D1A3B0E5095FD76F73B15 /* BuildManifestChangeImpactProviderTests.swift in Sources */,
+				3D2997BD4EA74019F9411868 /* ChangeImpactServiceTests.swift in Sources */,
+				7233B59B31717811183854A4 /* ChangeSetClientRegistryTests.swift in Sources */,
+				82CAB6D165AA7389D2B69D3D /* ChangeSetCutoverCoordinatorTests.swift in Sources */,
+				0262EF8191C5DA66515A89E4 /* ChangeSetDiffArtifactBuilderTests.swift in Sources */,
+				1772BAA10615F5334567FC73 /* ChangeSetQuotaCapacityPlannerTests.swift in Sources */,
+				97768E17E6575ECC2CF9D7FC /* ChangeSetQuotaLedgerTests.swift in Sources */,
+				FCF948AE13308654134ED561 /* ChangeSetSafetyNetTests.swift in Sources */,
+				943DAEDEC92508F051E9A4FA /* ChangeSetServiceTests.swift in Sources */,
+				63AEA9338DDCB35960A132FC /* ChangeSetTransactionStoreTests.swift in Sources */,
+				AAA4AF34AFD92D6722816D62 /* CheckFreshnessCacheTests.swift in Sources */,
+				BEE34C6AFDB45A15927357E5 /* ContextCompilerServiceTests.swift in Sources */,
+				FF3B8E57F5A54B50DE2CEBB1 /* DepfileChangeImpactProviderTests.swift in Sources */,
+				AEEC6AC6112BED15C391ED70 /* DevelopmentRuntimeServiceTests.swift in Sources */,
+				DB74CAD0E01FFEEF83E6DBEC /* DiagnosticAdapterServiceTests.swift in Sources */,
+				324290553A84E56F652B5306 /* EvidenceStoreTests.swift in Sources */,
+				559D81CEAB6DF42AD19A65CF /* ExternalProcessSupervisorTests.swift in Sources */,
+				BBF2E11ED3A7BABA3245697C /* FactoryDiagnosticsTests.swift in Sources */,
+				73297CDBDA89F349C978E1D1 /* FocusedCheckServiceTests.swift in Sources */,
+				CD486E8063218EA94E0C54A4 /* GitContextProviderTests.swift in Sources */,
+				B22A2ECF5210FEE0036A517D /* InstallationIntegrityTests.swift in Sources */,
+				A266259AD51AFD690EB6540C /* LegacyControlCompatStoreTests.swift in Sources */,
+				50F2FCDB4DC2E991CD8FBEEB /* ManagedProcessRegistryTests.swift in Sources */,
+				EF9EDEA61B1FC8939E057C3F /* ManagedProcessSafetyNetTests.swift in Sources */,
+				E15AAF0C7D8AECA4DC6F4F93 /* ManagedRunArtifactStoreTests.swift in Sources */,
+				0744BC042742C4FED16A38A3 /* ManagedRunServiceTests.swift in Sources */,
 				9C7107FC94A7DA0930472AF5 /* NativeApplicationServiceTests.swift in Sources */,
 				0D5B669ECEB8AC8A9E4CEA68 /* NativeFileServiceTests.swift in Sources */,
 				47669FDDCD1AD09CB1A344B4 /* NativeProcessServiceTests.swift in Sources */,
+				503FC068461855F360A6079C /* ObservationJournalTests.swift in Sources */,
+				2E8998D624E0F663ABC44B63 /* PathResolverTests.swift in Sources */,
+				51AFB60118CAC2C91AA52C3E /* Phase2AcceptanceTests.swift in Sources */,
+				87DF30D61EF21A0B1FE3B7C0 /* Phase3AcceptanceTests.swift in Sources */,
+				0124EFEA0C10373A5DDD889A /* ProjectProfileServiceTests.swift in Sources */,
+				3DF0154D822855DB2DC7669F /* ReservedNamespacePolicyTests.swift in Sources */,
+				49D2BFBAB3530F66B8A3D169 /* RunCheckFreshnessCacheSafetyNetTests.swift in Sources */,
+				2E291712C6D658EB15F50B69 /* RunCheckInvocationPlanTests.swift in Sources */,
+				8D843204813D4EA288D59EE8 /* RunCheckResolutionServiceTests.swift in Sources */,
+				4E22A6AA254180586AFF6C1C /* RuntimeStoreFixture.swift in Sources */,
 				9E5C15BB6051A16F4161B304 /* RuntimeStoreTests.swift in Sources */,
+				0529E4DA7BFE10822B426E11 /* SearchContextServiceTests.swift in Sources */,
+				1317756DCB7E0E5D1F837E0A /* SemanticSearchContextServiceTests.swift in Sources */,
+				545B4B707D1BF000A2D62755 /* SourceKitLSPServiceTests.swift in Sources */,
+				05BA179B97E2B4539CC992A6 /* StaticImportChangeImpactProviderTests.swift in Sources */,
 				5FF795276275EE6188D91652 /* TemporaryFixture.swift in Sources */,
+				12B9BA4B84DCC6AD817CE7A1 /* WorkspaceCheckpointStoreTests.swift in Sources */,
+				71ED2B1E3275D6C604421D6B /* WorkspaceStateRuntimeTests.swift in Sources */,
+				63053C0AE52EACD97D853336 /* WorkspaceWaitServiceTests.swift in Sources */,
+				DA60F81C44A190D543546B29 /* WorkspaceWarmRestartBenchmarkTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -372,12 +709,54 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8E12787A512829D7730CC73C /* AllowedPathResolver.swift in Sources */,
+				FA4B6D11AD263C7D63E3B232 /* ArtifactQueryService.swift in Sources */,
+				8356B689EEEC30498815D728 /* BuildManifestChangeImpactProvider.swift in Sources */,
+				0A1A1CE42769E97B67D06D0B /* ChangeImpactService.swift in Sources */,
+				09660856647CE13163396433 /* ChangeSetClientRegistry.swift in Sources */,
+				107E00E6A7203B7D2832150F /* ChangeSetCutoverCoordinator.swift in Sources */,
+				6E3367054B03A2940B542A4C /* ChangeSetDiffArtifactBuilder.swift in Sources */,
+				C94B0064551E2EAA72A55DCD /* ChangeSetQuotaCapacityPlanner.swift in Sources */,
+				1AA934844BFDC536E9CE0484 /* ChangeSetQuotaLedger.swift in Sources */,
+				6285BE3157F5DC97D2CB71CD /* ChangeSetService.swift in Sources */,
+				17AF476D8F43538395D66946 /* ChangeSetTransactionStore.swift in Sources */,
+				9FB603DC08292D10C124D398 /* CheckFreshnessCache.swift in Sources */,
+				79D375A50A6794A90F9EA178 /* ContextCompilerService.swift in Sources */,
+				85B61970B675E554B62A678E /* DepfileChangeImpactProvider.swift in Sources */,
+				4AB6813F8DEC2BC249A338C7 /* DevelopmentRuntimeService.swift in Sources */,
+				7591D5B2010CFEA50CB81E44 /* DiagnosticAdapterService.swift in Sources */,
+				68118DBD8080E8E940A01175 /* EvidenceStore.swift in Sources */,
+				76555FE9942F7E5511DB1FB0 /* ExternalProcessSupervisor.swift in Sources */,
+				3F1CDC112C68327573A11B73 /* FSEventsObserver.swift in Sources */,
+				9E3BC87C2144F6C4922CAC4D /* FactoryDiagnostics.swift in Sources */,
+				D0B3D497F56FAD3E5379F857 /* FocusedCheckService.swift in Sources */,
+				EA40807EDC6E2CCB6883255C /* GitContextProvider.swift in Sources */,
+				6095C0B38056A29524B502E0 /* InstallationIntegrity.swift in Sources */,
+				04E71244724D88D02324F493 /* LegacyControlCompatStore.swift in Sources */,
+				C73023268EBD29590931E2B4 /* ManagedArtifactQueryService.swift in Sources */,
+				F883DAD0350C5ACAFBC1705E /* ManagedProcessProtocol.swift in Sources */,
+				A1E0A17DD1F540AF6F58AF39 /* ManagedProcessRegistry.swift in Sources */,
+				66013C3F3B367D01C0584B9A /* ManagedRunArtifactStore.swift in Sources */,
+				98DC2E9B9A788966B0D9F83E /* ManagedRunService.swift in Sources */,
+				7176DF594FBA7134E696A81B /* ManagedRunSupervisorWire.swift in Sources */,
 				AB6DDC9D301AC0CF9EE206B7 /* Models.swift in Sources */,
 				073957B614C9F4C76748FB8F /* NativeApplicationService.swift in Sources */,
 				E1B4B8CC1611A8ADBDF42B96 /* NativeFileService.swift in Sources */,
 				D8B5D46D2C3B3ABD63D9BB77 /* NativeProcessService.swift in Sources */,
+				BD834A7FA6DBD433887039A1 /* ObservationJournal.swift in Sources */,
+				2A17AE581AFCE943E86D1A8A /* PathResolver.swift in Sources */,
+				0827AB9781D958FF3BEC787C /* ProjectProfileService.swift in Sources */,
+				6904E1D97FA6AD21E30A540C /* ReservedNamespacePolicy.swift in Sources */,
+				0A58B6C26D4187B6FEFEDA21 /* RunCheckInvocationPlan.swift in Sources */,
+				80EC17B049004CFCF3AF2974 /* RunCheckResolutionService.swift in Sources */,
 				EFF92903F2358A33571A4098 /* RuntimeStore.swift in Sources */,
+				8BE0019FE780FB8C7A87B09A /* SearchContextService.swift in Sources */,
+				D0A265D6A0EECCF5731C56C7 /* SemanticSearchContextService.swift in Sources */,
+				898FF0CCB4385D8D52F5C981 /* SourceKitLSPService.swift in Sources */,
+				D4C74E7A322F2ED8AF04920D /* StaticImportChangeImpactProvider.swift in Sources */,
+				67309AC47E24E63B8AEB3272 /* WorkspaceCheckpointStore.swift in Sources */,
+				AE46E5EA7C44843ACCB20CC7 /* WorkspaceDeltaJournal.swift in Sources */,
+				82E7B78696B11333A7BE743B /* WorkspaceStateRuntime.swift in Sources */,
+				1BDA9BE9203AC5454B3CF143 /* WorkspaceWaitService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -7,7 +7,15 @@ public actor RuntimeStore {
     public nonisolated let configurationURL: URL
     public nonisolated let activityURL: URL
 
-    public init(baseDirectory: URL? = nil) {
+    var workingDirectory: URL
+
+    public func pathResolver() -> PathResolver {
+        PathResolver(baseDirectory: workingDirectory)
+    }
+
+    public init(baseDirectory: URL? = nil, workingDirectory: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)) {
+        self.workingDirectory = workingDirectory
+
         let resolvedBase: URL
         if let baseDirectory {
             resolvedBase = baseDirectory
@@ -48,42 +56,6 @@ public actor RuntimeStore {
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(updated)
         try data.write(to: configurationURL, options: .atomic)
-    }
-
-    @discardableResult
-    public func setAllowedRoot(_ url: URL) throws -> RuntimeConfiguration {
-        try setAllowedRoots([url])
-    }
-
-    @discardableResult
-    public func setAllowedRoots(_ urls: [URL]) throws -> RuntimeConfiguration {
-        var configuration = try loadConfiguration()
-        configuration.allowedRootPaths = try canonicalRootPaths(urls)
-        try saveConfiguration(configuration)
-        return configuration
-    }
-
-    @discardableResult
-    public func addAllowedRoots(_ urls: [URL]) throws -> RuntimeConfiguration {
-        var configuration = try loadConfiguration()
-        let additions = try canonicalRootPaths(urls)
-        for path in additions where !configuration.allowedRootPaths.contains(path) {
-            configuration.allowedRootPaths.append(path)
-        }
-        try saveConfiguration(configuration)
-        return configuration
-    }
-
-    @discardableResult
-    public func removeAllowedRoot(path: String) throws -> RuntimeConfiguration {
-        var configuration = try loadConfiguration()
-        let canonicalPath = URL(fileURLWithPath: path, isDirectory: true)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-            .path
-        configuration.allowedRootPaths.removeAll { $0 == canonicalPath }
-        try saveConfiguration(configuration)
-        return configuration
     }
 
     @discardableResult
@@ -139,19 +111,4 @@ public actor RuntimeStore {
         )
     }
 
-    private func canonicalRootPaths(_ urls: [URL]) throws -> [String] {
-        var paths: [String] = []
-        for url in urls {
-            let canonicalURL = url.standardizedFileURL.resolvingSymlinksInPath()
-            var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: canonicalURL.path, isDirectory: &isDirectory),
-                  isDirectory.boolValue else {
-                throw AIShellError.invalidPath(url.path)
-            }
-            if !paths.contains(canonicalURL.path) {
-                paths.append(canonicalURL.path)
-            }
-        }
-        return paths
-    }
 }

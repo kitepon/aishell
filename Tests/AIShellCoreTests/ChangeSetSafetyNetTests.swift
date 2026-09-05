@@ -589,7 +589,7 @@ private struct ChangeSetFixture {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
         let runtime = RuntimeStore(baseDirectory: base.appendingPathComponent("runtime", isDirectory: true))
-        try await runtime.setAllowedRoot(root)
+        await runtime.setWorkingDirectoryForTesting(root)
         let faults = ApplyChangeSetFailureInjector()
         let clock = ApplyChangeSetTestClock(now: Date(timeIntervalSince1970: 1_800_000_000))
         let probe = try ApplyChangeSetTestProbe(baseDirectory: base, disabledCapabilities: disabledCapabilities, clock: clock)

@@ -2,7 +2,7 @@ import CryptoKit
 import Darwin
 import Foundation
 
-/// allowed root集合から、requestを所有する最深のeffective rootとpolicy identityを一意に解決する。
+/// 観測対象workspaceから、要求に対応するrootとidentityを解決する。
 public struct EffectiveRootProjectCatalog: Sendable {
     public struct Owner: Equatable, Sendable {
         public let root: URL
@@ -29,7 +29,7 @@ public struct EffectiveRootProjectCatalog: Sendable {
             }
             return Data(left.path.utf8).lexicographicallyPrecedes(Data(right.path.utf8))
         }).first else {
-            throw AIShellError.outsideAllowedRoot(requested.path)
+            throw AIShellError.outsideWorkspace(requested.path)
         }
         var info = stat()
         guard lstat(root.path, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR else {

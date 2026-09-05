@@ -111,10 +111,13 @@ test("参照形式の不足targetを配布閉包違反として拒否する", ()
 });
 
 test("npm配布物に入るMarkdownのローカルリンクは配布物内で閉じる", async () => {
-  const packed = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--ignore-scripts", "--json"], {
+  // npm 12はpackage名をkeyにしたobject、旧版はarrayを返す。
+  const reports = Object.values(JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--ignore-scripts", "--json"], {
     cwd: projectDirectory,
     encoding: "utf8",
-  }))[0];
+  })));
+  assert.equal(reports.length, 1, "配布検査はこのpackageの結果1件を対象にする");
+  const packed = reports[0];
   const files = new Set(packed.files.map((entry) => entry.path));
   const missing = [];
   for (const markdownPath of [...files].filter((file) => /\.md$/i.test(file))) {

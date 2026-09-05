@@ -18,7 +18,7 @@ final class ReservedNamespacePolicyTests: XCTestCase {
         try FileManager.default.createSymbolicLink(
             at: reserved.appendingPathComponent("outAlias"), withDestinationURL: publicDirectory
         )
-        let resolver = try AllowedPathResolver(rootPath: root.path)
+        let resolver = PathResolver(baseDirectory: URL(fileURLWithPath: root.path))
 
         XCTAssertThrowsReservedPath {
             _ = try resolver.resolveExisting("publicAlias/secret.txt")
@@ -28,7 +28,7 @@ final class ReservedNamespacePolicyTests: XCTestCase {
         }
     }
 
-    func testNestedConfiguredRootCannotRepublishReservedNamespace() throws {
+    func testWorkingDirectoryCannotRepublishReservedNamespace() throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
@@ -36,10 +36,10 @@ final class ReservedNamespacePolicyTests: XCTestCase {
         try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
 
         XCTAssertThrowsReservedPath {
-            _ = try AllowedPathResolver(rootPaths: [nested.path, root.path])
+            _ = try PathResolver(baseDirectory: nested).resolveExisting(nil)
         }
         XCTAssertThrowsReservedPath {
-            _ = try AllowedPathResolver(rootPaths: [root.path, nested.path])
+            _ = try PathResolver(baseDirectory: root).resolveExisting(nested.path)
         }
     }
 
@@ -52,7 +52,7 @@ final class ReservedNamespacePolicyTests: XCTestCase {
         try "visible".write(to: root.appendingPathComponent("visible.txt"), atomically: false, encoding: .utf8)
         try "needle".write(to: reserved.appendingPathComponent("secret.txt"), atomically: false, encoding: .utf8)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
 
         let files = NativeFileService(store: store)
         let listed = try await files.list()
@@ -83,7 +83,7 @@ final class ReservedNamespacePolicyTests: XCTestCase {
         let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
-        try await store.setAllowedRoot(root)
+        await store.setWorkingDirectoryForTesting(root)
         let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
         let initial = try await runtime.snapshot()
         let scanCount = await runtime.scanInvocationCountForTests()

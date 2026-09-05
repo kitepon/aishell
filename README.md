@@ -22,7 +22,7 @@ diagnostics, recovery, updates, and releases.
 for cross-product wiring and compatibility; it does not control AIShell's
 internal operation.
 
-AIShell owns the OS-facing state below the model: allowed roots, file identity, filesystem reconciliation, directly launched processes, complete logs, and retained artifacts. The AI host remains responsible for reasoning, threads, compaction, sub-agents, and general-purpose terminal work.
+AIShell owns the OS-facing state below the model: file identity, filesystem reconciliation, directly launched processes, complete logs, and retained artifacts. The AI host remains responsible for reasoning, threads, compaction, sub-agents, and general-purpose terminal work.
 
 ## Try it in 30 seconds
 
@@ -34,7 +34,7 @@ aishell-open
 codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
 ```
 
-In the manager app, add the folders the AI may access. Start a new Codex task and try:
+フォルダの事前登録は不要です。新しいCodex taskで対象フォルダを指定して実行します。
 
 ```text
 Use workspace_snapshot for the initial workspace context. Run the focused tests with
@@ -50,8 +50,8 @@ The default profile exposes five high-density development tools plus two always-
 | `search_context` | Budgeted lexical context from a directly launched `rg` worker, scoped to a directory or one regular file; the expanded capability also provides cursor-bound semantic definition/reference/symbol queries without lexical fallback |
 | `run_check` | Direct process execution, primary diagnostics, and complete stdout/stderr artifacts |
 | `artifact_read` | Range, tail, and pattern-centered reads from retained artifacts; the expanded capability also searches and compares finalized managed-run artifacts |
-| `runtime_status` | Allowed-root, pause, worktree, and next-action state, including while paused or unconfigured |
-| `runtime_open_manager` | Open the manager app to add roots or resume AI operations |
+| `runtime_status` | Pause, relative-path base, and next-action state |
+| `runtime_open_manager` | Open the manager app to pause or resume AI operations |
 
 Set `AISHELL_CAPABILITY_SET=expanded-v1` on the MCP server process to opt in to the candidate surface. It exposes nine high-density development tools plus the two recovery controls. The added tools are `run_observe`, `workspace_wait`, `change_impact`, and `apply_change_set`; existing tools gain closed managed-run, artifact query, semantic search, project-profile, and Git branch/worktree modes. Cross-run artifact operations require an explicit project path and reject live, expired, legacy-unbound, or different-project evidence instead of silently falling back to partial logs.
 
@@ -77,7 +77,7 @@ Typical stateless integrations repeatedly ask the model to rediscover workspace 
 | Context | Bounded, cursor-based structured results | Unbounded or manually truncated stdout |
 | Execution | Executable URL, arguments, working directory, and lifecycle remain separate | A shell evaluates one command string |
 | Evidence | Complete stdout/stderr retained behind expiring handles | Evidence often disappears when the response is truncated |
-| Scope | Human-managed allowed roots and explicit stop state | Depends on the surrounding shell and host policy |
+| Scope | macOS access permissions and explicit stop state | Depends on the surrounding shell and host policy |
 
 AIShell is not a sandbox and does not make arbitrary code execution safe. Its process rails exist to preserve typed execution and observable lifecycle—not to stop renamed binaries or child processes launched by an allowed worker.
 
@@ -87,7 +87,7 @@ AIShell is not a sandbox and does not make arbitrary code execution safe. Its pr
 flowchart LR
     Host[AI host<br/>reasoning · threads · compaction] --> MCP[AIShellMCP<br/>MCP 2025-11-25]
     MCP --> Core[AIShellCore]
-    Core --> State[Allowed roots · file identity<br/>FSEvents + reconciliation]
+    Core --> State[File identity<br/>FSEvents + reconciliation]
     Core --> Process[Direct process lifecycle<br/>stdout · stderr · timeout]
     Core --> Evidence[Retained evidence<br/>artifacts · freshness]
     Process --> Workers[git · rg · compiler · tests]
@@ -126,7 +126,7 @@ open build/AIShell.app
 
 The MCP executable is bundled at `build/AIShell.app/Contents/Helpers/aishell-mcp`.
 
-After opening the app, use **Add Allowed Root** to select the folders AIShell may access. A Git worktree registered under an allowed repository is recognized automatically when both sides of the worktree metadata agree.
+フォルダ登録は不要です。絶対パスは指定した場所を、相対パスと省略時はMCP起動ディレクトリを基準にします。Git worktreeも直接指定できます。旧設定の許可フォルダ一覧は無視されます。
 
 ## Connect another AI host
 
@@ -184,7 +184,7 @@ aishell-open
 ```
 
 `runtime_status` and `runtime_open_manager` are the recovery entrypoints for an
-unconfigured or paused runtime. Factory consumers call `factory_diagnostics`
+paused runtime. Factory consumers call `factory_diagnostics`
 through the dedicated `AISHELL_TOOL_PROFILE=factory` MCP surface; its schema and
 privacy boundary are owned by [the product contract](https://github.com/kitepon/aishell/blob/main/docs/factory-diagnostics.md).
 
