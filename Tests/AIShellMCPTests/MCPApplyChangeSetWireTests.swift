@@ -17,7 +17,8 @@ final class MCPApplyChangeSetWireTests: XCTestCase {
     }
 
     func testPublicWorkspaceCursorAppliesManagedTransactionWithoutClientPlumbingOrRescan() async throws {
-        let temporary = FileManager.default.temporaryDirectory
+        // macOSの別名パスでも、状態ファイルの世代交代を同じ保存先として扱う。
+        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
             .appendingPathComponent("aishell-mcp-managed-change-set-\(UUID().uuidString)", isDirectory: true)
         let root = temporary.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

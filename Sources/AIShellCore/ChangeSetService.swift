@@ -779,6 +779,9 @@ private actor ApplyChangeSetState {
         keyPrefix: String,
         context: (ledger: ChangeSetQuotaLedger, digest: String, reservationID: String)
     ) async throws {
+        // 台帳が保持する保存先と同じ正規形で旧世代を照合する。
+        let destination = destination.deletingLastPathComponent().standardizedFileURL
+            .resolvingSymlinksInPath().appendingPathComponent(destination.lastPathComponent).standardizedFileURL
         let views = try await context.ledger.materialViews()
         let candidates = views.filter { $0.id.hasPrefix(prefix + "_") && $0.state == .reserved }
             .sorted { Int($0.id.split(separator: "_").last!)! < Int($1.id.split(separator: "_").last!)! }
