@@ -1,7 +1,7 @@
 # ADR 0031: 製品単体の明示setup
 
 日付: 2026-09-10。判断: 採用。対象: AIShellの導入・設定・診断の所有境界。
-この判断は実装契約を受け入れる。公開npm版のSSH導入受入は[工程](../standalone-setup-plan.md)で別に追跡する。
+この判断は実装契約を受け入れる。公開npm版のSSH導入受入は[工程](../archive/standalone-setup-plan.md)で別に追跡する。
 
 ## 決定
 

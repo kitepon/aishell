@@ -1,4 +1,4 @@
-# 製品単体setupの実装・公開計画
+# 製品単体setupの実装・公開計画（完了）
 
 2026-09-10の依頼を正本とする。AIShell repoとAIShell所有の導入先だけを変更する。
 
@@ -23,17 +23,17 @@
 ## 現在地
 
 実装・focused試験・4AI公式CLIとMCPの隔離確認・別ベンダー反証を完了。
-境界判断は[ADR 0031](adr/0031-standalone-setup.md)。Node 44件と正式な配布検証は成功。
+境界判断は[ADR 0031](../adr/0031-standalone-setup.md)。Node 44件と正式な配布検証は成功。
 ローカルの全体試験は2回とも569件中1件失敗し、失敗箇所はそれぞれ異なった。
 両方とも単独再確認では再現していない。原因未確定の製品変更は行わず、
-[検証証跡](evidence/standalone-setup-20260910.json)へ残した。
+[検証証跡](../evidence/standalone-setup-20260910.json)へ残した。
 実装commit `03e961bfb6fcde3e48696f7b8d7be4b4380c655d` をmainへpushし、製品CIは成功した。
-[CI結果](evidence/standalone-setup-ci-20260910.md)に基づき公開前の技術検証を受け入れた。
+[CI結果](../evidence/standalone-setup-ci-20260910.md)に基づき公開前の技術検証を受け入れた。
 
 公開認証は完了し、commit `03c7ba33e074016e9ca752fa6beacbad43dae50b` から
 [0.6.0を公開](https://github.com/kitepon/aishell/releases/tag/v0.6.0)した。
 npm registryの`latest`、`gitHead`、tarball SHA-1 `427843d3242d9120e317557069d84ed21c7c6dd7`が公開結果と一致。
-追加の実装CIと文書CIも成功した。公開後のSSH導入とMCP smokeは未完了。
-localhostと127.0.0.1のSSHは接続拒否。main-serverはLinux/x86_64、windows-workstationはWindows/X64で対象外。
-対応MacのSSH接続先と共有AI設定の更新が他製品と重ならない時間を問い合わせ中。
-公開npm版をAitermのSSHセッションから導入する条件を保持し、ローカルの隔離試験で代替しない。
+追加の実装CIと文書CIも成功した。オーナーの最新指示でSSH条件をこのMacの通常導入へ変更し、
+Aiterm永続PTYで公開npm版の公式導入、4AIへのsetup、再実行、診断、MCP実操作、工場診断まで成功した。
+[実機証跡](../evidence/standalone-setup-public-mac-20260910.md)と
+[最終受入](../adr/0032-standalone-setup-acceptance.md)により完了と判定した。
