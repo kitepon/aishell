@@ -26,7 +26,9 @@
 境界判断は[ADR 0031](adr/0031-standalone-setup.md)。Node 44件と正式な配布検証は成功。
 ローカルの全体試験は2回とも569件中1件失敗し、失敗箇所はそれぞれ異なった。
 両方とも単独再確認では再現していない。原因未確定の製品変更は行わず、
-[検証証跡](evidence/standalone-setup-20260910.json)へ残した。mainの製品CIを確認して公開ゲートを判定する。
+[検証証跡](evidence/standalone-setup-20260910.json)へ残した。
+実装commit `03e961bfb6fcde3e48696f7b8d7be4b4380c655d` をmainへpushし、製品CIは成功した。
+[CI結果](evidence/standalone-setup-ci-20260910.md)に基づき公開前の技術検証を受け入れた。
 
 公開認証とSSH導入は未完了。npm認証がE401のため、公式ログイン画面での認証を依頼した。
 localhostと127.0.0.1のSSHは接続拒否。main-serverはLinux/x86_64、windows-workstationはWindows/X64で対象外。
