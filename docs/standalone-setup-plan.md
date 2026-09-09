@@ -30,7 +30,10 @@
 実装commit `03e961bfb6fcde3e48696f7b8d7be4b4380c655d` をmainへpushし、製品CIは成功した。
 [CI結果](evidence/standalone-setup-ci-20260910.md)に基づき公開前の技術検証を受け入れた。
 
-公開認証とSSH導入は未完了。npm認証がE401のため、公式ログイン画面での認証を依頼した。
+公開認証は完了し、commit `03c7ba33e074016e9ca752fa6beacbad43dae50b` から
+[0.6.0を公開](https://github.com/kitepon/aishell/releases/tag/v0.6.0)した。
+npm registryの`latest`、`gitHead`、tarball SHA-1 `427843d3242d9120e317557069d84ed21c7c6dd7`が公開結果と一致。
+追加の実装CIと文書CIも成功した。公開後のSSH導入とMCP smokeは未完了。
 localhostと127.0.0.1のSSHは接続拒否。main-serverはLinux/x86_64、windows-workstationはWindows/X64で対象外。
 対応MacのSSH接続先と共有AI設定の更新が他製品と重ならない時間を問い合わせ中。
 公開npm版をAitermのSSHセッションから導入する条件を保持し、ローカルの隔離試験で代替しない。
