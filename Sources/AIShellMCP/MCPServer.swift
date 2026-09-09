@@ -1297,6 +1297,13 @@ final class MCPServer: Sendable {
             "code": .string(stable.code),
             "message": .string(stable.message)
         ]
+        if let changeSet = error as? ApplyChangeSetError,
+           changeSet.code == .changeSetSecretStoreUnavailable, changeSet.context == nil {
+            // 鍵の取得はservice生成と編集開始より前。過去取引の状態は推定しない。
+            object["request_status"] = .string("aborted_before_side_effect")
+            object["changed_paths"] = .array([])
+            object["next_action"] = .string("authorize_keychain_access_then_retry")
+        }
         if let context = (error as? ApplyChangeSetError)?.context {
             object["transaction_id"] = .string(context.transactionID)
             object["client_id"] = .string(context.clientID)

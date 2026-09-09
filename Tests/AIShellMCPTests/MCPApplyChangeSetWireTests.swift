@@ -4,6 +4,18 @@ import XCTest
 @testable import AIShellMCP
 
 final class MCPApplyChangeSetWireTests: XCTestCase {
+    func testKeychainFailureReportsOnlyThisRequestAsAbortedBeforeSideEffect() throws {
+        let store = RuntimeStore()
+        let server = MCPServer(runtimeStore: store)
+        let error = ApplyChangeSetError(.changeSetSecretStoreUnavailable, "Keychain read failed: -25308")
+        let result = server.structuredError(error, stable: server.stableError(error)).objectValue
+        XCTAssertEqual(result?["request_status"], .string("aborted_before_side_effect"))
+        XCTAssertEqual(result?["changed_paths"], .array([]))
+        XCTAssertEqual(result?["next_action"], .string("authorize_keychain_access_then_retry"))
+        XCTAssertNil(result?["recovery_state"])
+        XCTAssertNil(result?["transaction_id"])
+    }
+
     func testPublicWorkspaceCursorAppliesManagedTransactionWithoutClientPlumbingOrRescan() async throws {
         let temporary = FileManager.default.temporaryDirectory
             .appendingPathComponent("aishell-mcp-managed-change-set-\(UUID().uuidString)", isDirectory: true)

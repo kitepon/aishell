@@ -1468,6 +1468,9 @@ public final class ApplyChangeSetSecretStore: @unchecked Sendable {
     }
 
     private static func loadOrCreateKey(account: String) throws -> Data {
+        guard NoninteractiveKeychain.configure() == errSecSuccess else {
+            throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "Keychainの非対話設定に失敗しました。編集は開始していません。")
+        }
         let service = "dev.kitepon.aishell.apply-change-set"
         let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account, kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne]
         var item: CFTypeRef?

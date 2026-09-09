@@ -149,6 +149,10 @@ AISHELL_CAPABILITY_SET=expanded-v1 AISHELL_TOOL_PROFILE=full /opt/homebrew/bin/a
 
 The full profile includes file listing and reads, atomic SHA-256-guarded updates, copy/move/rename/Trash, direct process execution, app discovery and launch, runtime status, and manager activation.
 
+`apply_change_set`のKeychain認証が必要な場合は、UIを待たず`CHANGE_SET_SECRET_STORE_UNAVAILABLE`を返す。
+取引開始前の失敗は`error.request_status: aborted_before_side_effect`と空の`changed_paths`で確認できる。
+既存鍵のアクセス認証を解決してから再実行する。transport timeoutだけを編集中止の証拠にしない。
+
 ## Execution and safety boundaries
 
 - AIShell never evaluates a shell command string. It resolves a development program from `PATH` to an executable URL and keeps arguments, environment, and working directory separate.

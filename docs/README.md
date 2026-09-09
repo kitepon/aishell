@@ -17,6 +17,7 @@ dotagentsは公開contractを使って製品横断wireと互換性を統合す�
 - [adr/0031-standalone-setup.md](adr/0031-standalone-setup.md): 製品単体setupの所有境界と別ベンダー反証の裁定。
 - [factory-diagnostics.md](factory-diagnostics.md): 製品所有のnative factory diagnostics contract。
 - [setup.md](setup.md): 製品単体の準備、AI登録、読戻し、MCP実操作と対応範囲。
+- [keychain-noninteractive-plan.md](keychain-noninteractive-plan.md): atomic編集のKeychain待ち修理と公開受入。
 - [adr/0032-standalone-setup-acceptance.md](adr/0032-standalone-setup-acceptance.md): 製品単体setupの公開版・Mac実機受入。
 - [adr/](adr/): 恒久的な設計判断と受入記録。
 - [evidence/](evidence/): 検証証跡。通常の実装・運用では読み込まず、判断根拠の追跡時だけ参照する。

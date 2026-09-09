@@ -469,6 +469,9 @@ public actor LegacyControlCompatStore {
     }
 
     private static func loadOrCreateRootKey(stateDirectory: URL) throws -> Data {
+        guard NoninteractiveKeychain.configure() == errSecSuccess else {
+            throw LegacyControlCompatStoreError(.secretStoreUnavailable, "Keychainの非対話設定に失敗しました。")
+        }
         let account = sha256(Data(stateDirectory.standardizedFileURL.path.utf8))
         let service = "dev.kitepon.aishell.apply-change-set"
         let query: [CFString: Any] = [
