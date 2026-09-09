@@ -31,6 +31,7 @@ security list-keychains -d user -s "$task_keychain_path" "$task_login_keychain"
 security default-keychain -d user -s "$task_keychain_path"
 
 swift test
+node --test scripts/setup/*.test.mjs scripts/verify-release-commit.test.mjs
 node --test scripts/repository-contract.test.mjs
 scripts/package-app.sh release
 npm pack --dry-run

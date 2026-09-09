@@ -29,9 +29,7 @@ AIShell owns the OS-facing state below the model: file identity, filesystem reco
 Requires an Apple Silicon Mac running macOS 15 or later.
 
 ```sh
-npm install -g @quolu/aishell
-aishell-open
-codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
+npm install -g @quolu/aishell && aishell-setup
 ```
 
 フォルダの事前登録は不要です。新しいCodex taskで対象フォルダを指定して実行します。
@@ -58,7 +56,7 @@ Set `AISHELL_CAPABILITY_SET=expanded-v1` on the MCP server process to opt in to 
 For Codex, register the expanded surface explicitly:
 
 ```sh
-codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
+aishell-setup --ai codex
 ```
 
 Unknown or empty `AISHELL_CAPABILITY_SET` and `AISHELL_TOOL_PROFILE` values fail startup with typed errors; they never fall back to another profile.
@@ -99,13 +97,16 @@ flowchart LR
 
 ## Install from npm
 
-The global package adds `aishell-mcp` and `aishell-open` to `PATH`. `aishell-open` opens the bundled manager app through LaunchServices. The package runs no install script.
+global packageは`aishell-mcp`、`aishell-open`、`aishell-setup`を`PATH`へ追加する。npm install自体ではスクリプトも管理アプリも起動しない。
 
-更新時に管理アプリを開いたままだと、旧processが置換前のbundleを参照し続ける。管理アプリは差し替えを検知してバナーを表示する。同じパスに新版があればバナーから再起動し、移動・削除されていれば終了後に`aishell-open`で開き直す。接続済みのMCPも、hostで再接続すると新版へ切り替わる。
+対象AIのCLI（`claude`、`codex`、`grok`、Cursorの`agent`）を先に導入する。setupは各CLIからの読戻しも確認する。
+
+`aishell-setup`は導入済みのClaude Code・Codex・Grok Build・Cursorを検出し、管理アプリ準備、MCP登録、設定の読戻し、実際のMCP操作まで確認する。登録はbare `aishell-mcp`＋`AISHELL_CAPABILITY_SET=expanded-v1`。利用者のenv、PATH、他の設定を保持する。`--ai`で対象を指定でき、`--check`は設定やアプリ起動を変更せず診断する。Windows/LinuxとIntel Macは対象外。詳細は[製品単体の導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
+
+更新後も同じ`aishell-setup`を実行する。旧管理アプリを正常終了して導入済みのアプリを開き、登録保持・読戻し・MCP実操作まで確認する。接続済みのMCPは、hostで再接続すると新版へ切り替わる。
 
 ```sh
-npm install -g @quolu/aishell
-aishell-open
+npm install -g @quolu/aishell && aishell-setup
 ```
 
 The current experimental build is not yet Developer ID signed or notarized.
@@ -129,9 +130,8 @@ The MCP executable is bundled at `build/AIShell.app/Contents/Helpers/aishell-mcp
 For a global npm installation, register the executable name from `PATH` and the expanded development surface:
 
 ```sh
-codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
-claude mcp add --scope user aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
-codex mcp get aishell
+aishell-setup --ai claude,codex,grok,cursor
+aishell-setup --check
 ```
 
 Remove the registration with:
@@ -172,11 +172,10 @@ The full profile includes file listing and reads, atomic SHA-256-guarded updates
 ## Operations, updates, and releases
 
 Upgrade a standalone installation through the same official npm path used for
-initial installation, then open the newly installed manager:
+initial installation, then run the explicit setup:
 
 ```sh
-npm install -g @quolu/aishell@latest
-aishell-open
+npm install -g @quolu/aishell@latest && aishell-setup
 ```
 
 `runtime_status` and `runtime_open_manager` are the recovery entrypoints for a
@@ -198,7 +197,7 @@ npm publish --access public --browser=false
 
 The release gate rejects a dirty tree or a commit that has not landed on the
 default branch. After publishing, create the matching GitHub Release, reinstall
-`@quolu/aishell@latest`, and smoke MCP initialize plus `factory_diagnostics`.
+`@quolu/aishell@latest`, run `aishell-setup` and `aishell-setup --check`, and separately smoke `factory_diagnostics`.
 GitHub Releases are the public record of shipped versions.
 
 ### 公開認証と導入確認

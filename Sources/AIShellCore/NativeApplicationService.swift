@@ -125,6 +125,19 @@ public final class NativeApplicationService {
                 at: canonicalURL,
                 configuration: configuration
             )
+            // LaunchServicesのcompletion直後はPID再検索がnilになり得る。
+            // 返却されたapp自身でNSApplicationの起動完了を観測する。
+            let deadline = Date().addingTimeInterval(10)
+            while !application.isFinishedLaunching && !application.isTerminated {
+                guard Date() < deadline else {
+                    throw AIShellError.invalidArgument("AIShell管理アプリの起動完了が制限時間を超えました。")
+                }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            guard !application.isTerminated,
+                  application.bundleURL?.resolvingSymlinksInPath().standardizedFileURL == canonicalURL else {
+                throw AIShellError.invalidArgument("導入済みAIShell管理アプリの実行を確認できません。")
+            }
             return RunningApplicationInfo(
                 name: application.localizedName
                     ?? bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
@@ -134,6 +147,28 @@ public final class NativeApplicationService {
                 isActive: application.isActive
             )
         }
+    }
+
+    /// 明示setup時は旧bundleを参照するprocessも終了し、導入済みのappを確認してから返す。
+    /// npm install自体からは呼ばない。停止状態の変更もしない。
+    public func prepareManagerApplication(at applicationURL: URL) async throws -> RunningApplicationInfo {
+        guard let identifier = Bundle(url: applicationURL)?.bundleIdentifier else {
+            throw AIShellError.invalidPath("導入済みAIShell.appのbundleを読み取れません。")
+        }
+        let previous = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+        for application in previous {
+            guard application.terminate() else {
+                throw AIShellError.invalidArgument("旧AIShell管理アプリを終了できません。")
+            }
+        }
+        let deadline = Date().addingTimeInterval(10)
+        while previous.contains(where: { !$0.isTerminated }) {
+            guard Date() < deadline else {
+                throw AIShellError.invalidArgument("旧AIShell管理アプリの終了が制限時間を超えました。")
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        return try await openManagerApplication(at: applicationURL)
     }
 
     private func ensureActive() async throws {

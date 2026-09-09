@@ -1,6 +1,6 @@
 {
   "name": "@quolu/aishell",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A native macOS state runtime with high-density MCP tools for AI development",
   "license": "Apache-2.0",
   "author": {
@@ -30,17 +30,25 @@
   ],
   "bin": {
     "aishell-mcp": "dist/AIShell.app/Contents/Helpers/aishell-mcp",
-    "aishell-open": "scripts/aishell-open.mjs"
+    "aishell-open": "scripts/aishell-open.mjs",
+    "aishell-setup": "scripts/aishell-setup.mjs"
   },
   "files": [
     "dist/AIShell.app",
     "scripts/aishell-open.mjs",
+    "scripts/aishell-setup.mjs",
+    "scripts/setup/hosts.mjs",
+    "scripts/setup/host-cli.mjs",
+    "scripts/setup/setup.mjs",
+    "scripts/setup/mcp-client.mjs",
+    "scripts/setup/toml-registration.mjs",
     "README.md"
   ],
   "scripts": {
     "build:npm": "node scripts/prepare-npm-release.mjs",
     "prepack": "npm run build:npm",
-    "test": "swift test && npm run test:release-gate && npm run test:repository-contract",
+    "test": "swift test && npm run test:setup && npm run test:release-gate && npm run test:repository-contract",
+    "test:setup": "node --test scripts/setup/*.test.mjs",
     "test:release-gate": "node --test scripts/verify-release-commit.test.mjs",
     "test:repository-contract": "node --test scripts/repository-contract.test.mjs",
     "test:package": "npm run build:npm && node scripts/verify-npm-package.mjs",
@@ -59,5 +67,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "smol-toml": "1.8.0",
+    "toml-eslint-parser": "0.10.0"
   }
 }

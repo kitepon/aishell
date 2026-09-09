@@ -20,6 +20,8 @@ scripts/package-app.sh release
 
 文書だけの変更ではSwift testを実行せず、`npm run test:repository-contract`と差分確認でリンク・配布文書の整合を検証する。
 
+導入・AI登録の変更は`npm run test:setup`、native準備処理の変更は`NativeApplicationServiceTests`を先に確認する。公開時は`npm test`と`npm run test:package`を通し、公開npm版を対応Macへ公式導入して`aishell-setup`の実操作まで確認する。製品単体の導入契約は[docs/setup.md](docs/setup.md)を参照する。
+
 Use `xcodegen generate` only when the Xcode project needs regeneration. Do not commit derived build output.
 
 ## Pull request checklist

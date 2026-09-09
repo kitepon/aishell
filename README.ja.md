@@ -28,9 +28,7 @@ AIShellはfile identity、filesystem照合state、直接起動したprocess、�
 Apple Silicon Mac、macOS 15以降が必要。
 
 ```sh
-npm install -g @quolu/aishell
-aishell-open
-codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
+npm install -g @quolu/aishell && aishell-setup
 ```
 
 フォルダの事前登録は不要。新しいCodex taskで対象フォルダを指定して実行する。
@@ -60,7 +58,7 @@ semantic search、project profile、Git branch/worktree modeが加わる。
 Codexでは次のように登録する。
 
 ```sh
-codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
+aishell-setup --ai codex
 ```
 
 未知値または空の`AISHELL_CAPABILITY_SET`と`AISHELL_TOOL_PROFILE`はtyped errorでstartup停止し、
@@ -101,13 +99,16 @@ flowchart LR
 
 ## npmからinstall
 
-global packageは`aishell-mcp`と`aishell-open`を`PATH`へ追加する。`aishell-open`は同梱された管理アプリをLaunchServicesで開く。install scriptは実行しない。
+global packageは`aishell-mcp`、`aishell-open`、`aishell-setup`を`PATH`へ追加する。npm install自体ではスクリプトも管理アプリも起動しない。
 
-更新時に管理アプリを開いたままだと、旧processが置換前のbundleを参照し続ける。管理アプリは差し替えを検知してバナーを表示する。同じパスに新版があればバナーから再起動し、移動・削除されていれば終了後に`aishell-open`で開き直す。接続済みのMCPも、hostで再接続すると新版へ切り替わる。
+対象AIのCLI（`claude`、`codex`、`grok`、Cursorの`agent`）を先に導入する。setupは各CLIからの読戻しも確認する。
+
+`aishell-setup`は導入済みのClaude Code・Codex・Grok Build・Cursorを検出し、管理アプリ準備、MCP登録、設定の読戻し、実際のMCP操作まで確認する。登録はbare `aishell-mcp`＋`AISHELL_CAPABILITY_SET=expanded-v1`。利用者のenv、PATH、他の設定を保持する。`--ai`で対象を指定でき、`--check`は設定やアプリ起動を変更せず診断する。Windows/LinuxとIntel Macは対象外。詳細は[製品単体の導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
+
+更新後も同じ`aishell-setup`を実行する。旧管理アプリを正常終了して導入済みのアプリを開き、登録保持・読戻し・MCP実操作まで確認する。接続済みのMCPは、hostで再接続すると新版へ切り替わる。
 
 ```sh
-npm install -g @quolu/aishell
-aishell-open
+npm install -g @quolu/aishell && aishell-setup
 ```
 
 現在の実験版はDeveloper ID署名・notarization前である。
@@ -131,9 +132,8 @@ MCP実行ファイルは`build/AIShell.app/Contents/Helpers/aishell-mcp`へ同�
 global npm install後は`PATH`上のcommand名とexpanded development surfaceを登録する。
 
 ```sh
-codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
-claude mcp add --scope user aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
-codex mcp get aishell
+aishell-setup --ai claude,codex,grok,cursor
+aishell-setup --check
 ```
 
 解除:
@@ -174,8 +174,7 @@ full profileにはfile一覧・read、SHA-256競合検出付きatomic update、c
 単独installの更新は初回と同じ公式npm経路を使い、新版の管理アプリを開く。
 
 ```sh
-npm install -g @quolu/aishell@latest
-aishell-open
+npm install -g @quolu/aishell@latest && aishell-setup
 ```
 
 停止中の復旧入口は`runtime_status`と`runtime_open_manager`である。

@@ -11,10 +11,13 @@ AIShellはネットワークサーバーや常駐daemonにせず、アプリに�
 ## 登録
 
 ```text
-codex mcp add aishell --env AISHELL_CAPABILITY_SET=expanded-v1 -- aishell-mcp
+aishell-setup --ai codex
 ```
 
 ## 接続後の確認
+
+準備・登録・読戻し・MCP実操作の正規入口は[製品単体の導入契約](../docs/setup.md)を正とする。
+既存のuser envを保持し、登録内容はbare `aishell-mcp`＋`AISHELL_CAPABILITY_SET=expanded-v1`のまま。
 
 MCP接続後に`runtime_status`で`relativePathBase`と停止状態を確認する。グローバルinstallを更新した場合はMCPを再接続する。公開版の確認結果は[ADR 0030](../docs/adr/0030-folder-registration-removal.md)に記録した。
 

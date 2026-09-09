@@ -1,0 +1,71 @@
+{
+  "schema": "aishell.standalone-setup-evidence.v1",
+  "observedDate": "2026-09-10",
+  "candidateVersion": "0.6.0",
+  "baseline": {
+    "commit": "c3b934a31819fdbb993cbece4911430df3a0e984",
+    "branch": "main",
+    "matchedOriginMain": true,
+    "initialDirty": false,
+    "initialStash": false,
+    "publicNpmVersion": "0.5.0",
+    "installLifecycle": false,
+    "nodeTestsPassed": 9
+  },
+  "localPlatform": { "os": "macOS", "version": "26.6.1", "arch": "arm64" },
+  "hostChecks": [
+    { "ai": "claude", "version": "2.1.259", "isolatedHome": true, "initial": "ready", "rerun": "unchanged", "diagnose": "verified", "hostVerified": true, "mcpVersion": "0.6.0", "tools": 11 },
+    { "ai": "codex", "version": "0.150.1", "isolatedHome": true, "initial": "ready", "rerun": "unchanged", "diagnose": "verified", "hostVerified": true, "mcpVersion": "0.6.0", "tools": 11 },
+    { "ai": "grok", "version": "1.0.13", "isolatedHome": true, "initial": "ready", "rerun": "unchanged", "diagnose": "verified", "hostVerified": true, "mcpVersion": "0.6.0", "tools": 11 },
+    { "ai": "cursor", "version": "2026.09.02-c22c1a3", "isolatedHome": true, "initial": "ready", "rerun": "unchanged", "diagnose": "verified", "hostVerified": true, "mcpVersion": "0.6.0", "tools": 11 }
+  ],
+  "mcpOperations": ["initialize", "tools/list", "runtime_status", "workspace_snapshot（一時fileの実在確認）"],
+  "manager": { "repeatAfterFix": 12, "failuresAfterFix": 0, "observedGuiProcess": true, "launchCompletionObserved": true },
+  "focused": {
+    "setupTests": 35,
+    "finalNodeTests": 44,
+    "finalNodeFailures": 0,
+    "nativeApplicationServiceTests": "成功",
+    "mcpRunCheckV2WireTests": "成功",
+    "cases": ["初回", "再実行", "更新", "旧登録", "env・他設定保持", "対応外OS・CPU・OS版", "準備失敗", "登録失敗", "読戻し不一致", "MCP起動失敗・timeout", "TOML表記保持", "Cursor承認"]
+  },
+  "distribution": {
+    "command": "npm run test:package",
+    "status": "passed",
+    "packedInstall": "一時prefixへの公式npm install",
+    "entryAndDependencies": "passed",
+    "bareMcpAndWorkspaceOperation": "passed",
+    "bareAsyncSupervisorAndTerminalObservation": "passed",
+    "isPublicNpmSshInstall": false
+  },
+  "localFullRuns": [
+    {
+      "tests": 569,
+      "failures": 1,
+      "failedTest": "ManagedProcessSafetyNetTests.testIntegratedTerminationWorkflowCoversAllCausesAndCrashWindows",
+      "error": "recoveryRequired",
+      "stdoutSha256": "c50df5658ccd1d1894355205c971e984f0d27f2b025b7e8d3835c2b68a5ecb3d",
+      "focusedRecheck": "単独反復とAIShell経由で成功",
+      "productFixForThisFailure": false
+    },
+    {
+      "tests": 569,
+      "failures": 1,
+      "failedTest": "RunCheckResolutionServiceTests.testRestartedServicesReobserveSameCompleteClosure",
+      "error": "contentChanged",
+      "stdoutSha256": "5b8ae5f2038e6debfe5e3c3b7c6f17f89e91b78c77746091dbc2978f5b3b9577",
+      "focusedRecheck": "単独で成功し、追加の15回反復も成功",
+      "productFixForThisFailure": false
+    }
+  ],
+  "documentation": { "existingTrackedMarkdown": 131, "scope": "導入関連記述、現役と履歴の区別、ローカルリンク、npm配布リンク閉包", "linkChecks": "passed" },
+  "refutation": { "vendor": "xAI", "session": "e9800350-b6ea-4f9e-8761-67579babf217", "finalAt": "2026-09-09T15:57:28.570Z", "decision": "docs/adr/0031-standalone-setup.md" },
+  "publicDelivery": {
+    "published": false,
+    "sshInstall": false,
+    "pending": ["mainの製品CIゲート", "npm再認証", "対応MacのSSH接続先と共有AI設定を更新できる時間"],
+    "unsupportedHostsObserved": ["Linux/x86_64", "Windows/X64"],
+    "unsupportedHostChanges": false,
+    "otherRepositoriesChanged": false
+  }
+}

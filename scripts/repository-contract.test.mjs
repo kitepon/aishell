@@ -15,7 +15,8 @@ const projectDirectory = path.dirname(path.dirname(fileURLToPath(import.meta.url
 const markdownFiles = async (directory, prefix = "") => {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if ([".git", ".build", "dist", "node_modules", "rag"].includes(entry.name)) continue;
+    if ([".git", ".build", "dist", "node_modules"].includes(entry.name)) continue;
+    if (prefix === "rag" && entry.name === "raw") continue;
     const relative = path.posix.join(prefix, entry.name);
     const absolute = path.join(directory, entry.name);
     if (entry.isDirectory()) found.push(...await markdownFiles(absolute, relative));

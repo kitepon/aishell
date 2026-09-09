@@ -1,5 +1,7 @@
 # RAG Index
 
+- [明示setupとAI設定の確認](standalone-setup-host-contracts.md) — Claude/Codex/Grokの専用home読戻し、CursorがCURSOR_HOMEを参照しない実測と公式設定場所（2026-09-10、確度: 高）
+
 - [GitHub公開repository設定](github-public-repository-settings.md) — private vulnerability reportingのAPI契約とSocial previewのUI制約・受入方法を記録（2026-07-19、確度: 高）
 - [GitHub Actions macOS CI選定](github-actions-macos-ci.md) — 公開repo向けM1 arm64の`macos-15`を採用し、toolchain versionをjob logへ残す。`macos-latest`とpublish操作は通常CIから除外（2026-07-19、確度: 高）
 - [AIShell macOS直結・開発効率ランタイム調査](development-efficiency-runtime.md) — Direct OS状態所有を根にした5 toolを実装。同一candidate 3×3 sentinelは両arm 9/9、token/solved task 25.86%減・平均wall 32.59%減（2026-07-19、確度: 中〜高）

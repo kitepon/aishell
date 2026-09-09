@@ -10,6 +10,7 @@
 - 対応: macOS arm64、macOS 15以降
 - `aishell-mcp`: npm `bin` からSwift製Mach-Oへ直接リンク
 - `aishell-open`: package内の `AIShell.app` をLaunchServicesで開く明示コマンド
+- `aishell-setup`: 管理アプリ準備、AI登録、読戻し、MCP実操作を一回で確認する明示コマンド。現行の導入・更新手順は[製品契約](../docs/setup.md)を正とする。
 - lifecycle install script: 不採用（0.4.4で助言専用postinstallを試したが、0.4.5で撤回）
 
 MCPと管理アプリの起動経路はどちらもinstall scriptに依存させない。インストール時にユーザー領域へ

@@ -63,7 +63,7 @@ actor MCPServiceRegistry {
         if let managedRuns { return managedRuns }
         let service = try ManagedRunService(
             runtimeStore: store,
-            supervisorExecutableURL: Self.supervisorExecutableURL()
+            supervisorExecutableURL: try Self.supervisorExecutableURL()
         )
         managedRuns = service
         return service
@@ -76,12 +76,16 @@ actor MCPServiceRegistry {
             .appendingPathComponent(digest, isDirectory: true)
     }
 
-    private static func supervisorExecutableURL() -> URL {
+    private static func supervisorExecutableURL() throws -> URL {
         if let override = ProcessInfo.processInfo.environment["AISHELL_RUN_SUPERVISOR_PATH"],
            !override.isEmpty {
             return URL(fileURLWithPath: override)
         }
-        return URL(fileURLWithPath: CommandLine.arguments[0])
+        // bare commandのargv[0]はcwd相対になる。読み込まれたhelper自身から兄弟を解決する。
+        guard let executable = Bundle.main.executableURL else {
+            throw AIShellError.invalidPath("実行中のMCP helperを特定できません。")
+        }
+        return executable
             .resolvingSymlinksInPath()
             .deletingLastPathComponent()
             .appendingPathComponent("aishell-run-supervisor")

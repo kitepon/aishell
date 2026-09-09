@@ -32,6 +32,7 @@ Direct OSは交換可能なbackendではなく、効率化を生む設計上の�
 - AIShellは単独でinstall、config、state/schema、migration、diagnostics、recovery、
   update、releaseできる契約を本repo内に持つ。dotagentsは製品横断wireと互換projectionを
   統合するだけで、AIShellの内部状態や運用判断を制御しない。
+- 製品単体の準備・AI登録・読戻し・MCP実操作は`aishell-setup`が所有する。Mac/AI別の差は`scripts/setup/`へ置き、管理アプリ操作は既存の`AIShellCore`を使う。npm install lifecycleでは起動しない。公開契約は`docs/setup.md`を正とする。
 - AI hostがreasoning、thread、compaction、sub-agent、汎用PTYを所有する。AIShellで再実装しない。
 - AIShellはfile identity、FSEvents観測とfilesystem照合によるdelta、直接起動したprocess、完全log/artifact、freshnessを所有する。FSEvents単独を完全な履歴とは見なさない。
 - Git、`rg`、compiler、test runner、SourceKit-LSPはAIShellが直接起動・監視するworkerとして再利用する。状態の所有者や公開toolの寄せ集めにはしない。
