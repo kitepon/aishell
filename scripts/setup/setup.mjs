@@ -40,6 +40,25 @@ export function prepareManager() {
   return { ready: true, processIdentifier: value.processIdentifier };
 }
 
+export function prepareKeychain({ check, env }, run = execFileSync) {
+  const binary = path.join(packageDirectory, 'dist/AIShell.app/Contents/Helpers/aishell-mcp');
+  const invoke = argument => {
+    const result = JSON.parse(run(binary, [argument], {
+      env, encoding: 'utf8', timeout: argument === '--prepare-keychain' ? 300000 : 30000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }));
+    if (result.ready !== true || !Number.isInteger(result.checkedKeys) || result.checkedKeys < 0) throw new Error('invalid keychain result');
+    return result;
+  };
+  try {
+    if (!check) invoke('--prepare-keychain');
+    // 対話processだけの一時許可をreadyとしない。別processで非対話の読取りを確認する。
+    return invoke('--check-keychain');
+  } catch {
+    throw new SetupError('KEYCHAIN_NOT_READY', '導入済みhelperから既存の鍵の読取りを確認できません。aishell-setupを実行し、macOSの認証画面が出た場合は「常に許可」を選んでください。');
+  }
+}
+
 export async function smoke(registration, expectedVersion, { env = process.env } = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'aishell-setup-smoke-'));
   try {
@@ -82,6 +101,18 @@ export async function setup(options = {}, dependencies = {}) {
     if (!options.check) {
       stage = 'prepare';
       report.manager = await (dependencies.prepare ?? prepareManager)();
+    }
+    stage = 'keychain';
+    const keychains = new Map();
+    report.keychain = [];
+    for (const plan of plans) {
+      const keychainEnv = { ...env, ...plan.registration.env };
+      const statePath = keychainEnv.AISHELL_STATE_DIRECTORY ?? '';
+      if (!keychains.has(statePath)) {
+        const result = await (dependencies.keychain ?? prepareKeychain)({ check: Boolean(options.check), env: keychainEnv });
+        keychains.set(statePath, result);
+        report.keychain.push(result);
+      }
     }
     for (const plan of plans) {
       stage = `register:${plan.spec.ai}`;

@@ -1,6 +1,6 @@
 # RAG Index
 
-- [file-based Keychainの非対話操作](keychain-noninteractive.md) — 認証UI待ちの停止点、既存鍵を移行せず待機を禁止するAPI、transport timeoutと処理中止の区別（2026-09-10、確度: 高）
+- [file-based Keychainの非対話操作](keychain-noninteractive.md) — 認証UI待ちの停止点、既存鍵を移行せず待機を禁止するAPI、ad-hoc更新時のidentityとsetupでの認証確認（2026-09-10、確度: 高）
 
 - [明示setupとAI設定の確認](standalone-setup-host-contracts.md) — Claude/Codex/Grokの専用home読戻し、CursorがCURSOR_HOMEを参照しない実測と公式設定場所（2026-09-10、確度: 高）
 

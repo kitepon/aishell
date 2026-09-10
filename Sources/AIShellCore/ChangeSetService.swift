@@ -821,6 +821,10 @@ private actor ApplyChangeSetState {
     }
     private static func stableUUID(slot: Int) -> String { String(format: "a15e1100-0000-4000-8000-%012d", slot + 1) }
 
+    fileprivate static func validateSnapshotKey(at url: URL, key: SymmetricKey) throws {
+        _ = try loadSnapshot(at: url, key: key)
+    }
+
     private static func loadSnapshot(at url: URL, key: SymmetricKey) throws -> LoadedChangeSetSnapshot {
         do {
             let envelope = try JSONDecoder().decode(EncryptedStateEnvelope.self, from: Data(contentsOf: url))
@@ -1432,7 +1436,38 @@ public final class ApplyChangeSetSecretStore: @unchecked Sendable {
     fileprivate let key: SymmetricKey
 
     public init(baseDirectory: URL, stateDirectory: URL, root: URL, disabledCapabilities: Set<ApplyChangeSetCapability> = []) throws {
-        let keyData = try Self.loadOrCreateKey(account: stateDirectory.standardizedFileURL.path.applyStringSHA256)
+        let originalPath = stateDirectory.path
+        try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let canonicalPath = stateDirectory.standardizedFileURL.path
+        let snapshot = stateDirectory.appendingPathComponent("apply-change-set-state.enc.json")
+        let keyData: Data
+        if FileManager.default.fileExists(atPath: snapshot.path) {
+            // 旧版はdirectory作成前のpathで鍵を作った。既存snapshotの認証で旧鍵を識別し、
+            // compatibility storeが別の鍵を使用中でも、どちらの鍵も上書きしない。
+            var paths = [canonicalPath, originalPath]
+            if let resolved = realpath(stateDirectory.path, nil) {
+                paths.append(String(cString: resolved))
+                free(resolved)
+            }
+            var seen = Set<String>()
+            var matched: Data?
+            var authenticationFailure: Error?
+            for path in paths where seen.insert(path).inserted {
+                guard let candidate = try Self.readKey(account: path.applyStringSHA256) else { continue }
+                do {
+                    try ApplyChangeSetState.validateSnapshotKey(at: snapshot, key: SymmetricKey(data: candidate))
+                    matched = candidate
+                    break
+                } catch { authenticationFailure = error }
+            }
+            guard let matched else {
+                if let authenticationFailure { throw authenticationFailure }
+                throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "既存の暗号化状態に対応するKeychainの鍵がありません。")
+            }
+            keyData = matched
+        } else {
+            keyData = try Self.loadOrCreateKey(account: canonicalPath.applyStringSHA256)
+        }
         key = SymmetricKey(data: keyData)
         state = try ApplyChangeSetState(base: baseDirectory, stateDirectory: stateDirectory, root: root, disabled: disabledCapabilities, encryptionKey: key)
     }
@@ -1470,7 +1505,7 @@ public final class ApplyChangeSetSecretStore: @unchecked Sendable {
         return zip(lhs, rhs).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
     }
 
-    private static func loadOrCreateKey(account: String) throws -> Data {
+    private static func readKey(account: String) throws -> Data? {
         guard NoninteractiveKeychain.configure() == errSecSuccess else {
             throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "Keychainの非対話設定に失敗しました。編集は開始していません。")
         }
@@ -1480,6 +1515,12 @@ public final class ApplyChangeSetSecretStore: @unchecked Sendable {
         let readStatus = SecItemCopyMatching(query as CFDictionary, &item)
         if readStatus == errSecSuccess, let data = item as? Data, data.count == 32 { return data }
         guard readStatus == errSecItemNotFound else { throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "Keychain read failed: \(readStatus)") }
+        return nil
+    }
+
+    private static func loadOrCreateKey(account: String) throws -> Data {
+        if let existing = try readKey(account: account) { return existing }
+        let service = "dev.kitepon.aishell.apply-change-set"
         var bytes = Data(count: 32)
         let randomStatus = bytes.withUnsafeMutableBytes { buffer in SecRandomCopyBytes(kSecRandomDefault, 32, buffer.baseAddress!) }
         guard randomStatus == errSecSuccess else { throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "CSPRNG failed") }

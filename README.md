@@ -105,6 +105,8 @@ global packageは`aishell-mcp`、`aishell-open`、`aishell-setup`を`PATH`へ追
 
 更新後も同じ`aishell-setup`を実行する。旧管理アプリを正常終了して導入済みのアプリを開き、登録保持・読戻し・MCP実操作まで確認する。接続済みのMCPは、hostで再接続すると新版へ切り替わる。
 
+setupは保存済みの編集鍵を新版のhelperから読めることも確認する。macOSの認証画面が出た場合は「常に許可」を選ぶ。別processで非対話の読取りを確認できなければ`KEYCHAIN_NOT_READY`で終了する。通常のMCPと`--check`は認証画面を開かない。
+
 ```sh
 npm install -g @quolu/aishell && aishell-setup
 ```

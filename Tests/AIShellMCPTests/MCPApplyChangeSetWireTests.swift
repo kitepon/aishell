@@ -17,8 +17,16 @@ final class MCPApplyChangeSetWireTests: XCTestCase {
     }
 
     func testPublicWorkspaceCursorAppliesManagedTransactionWithoutClientPlumbingOrRescan() async throws {
+        try await assertManagedTransactionSurvivesRestart(parent: URL(fileURLWithPath: "/private/tmp", isDirectory: true))
+    }
+
+    func testPublicManagedTransactionSurvivesRestartWithoutPathAlias() async throws {
+        try await assertManagedTransactionSurvivesRestart(parent: FileManager.default.temporaryDirectory)
+    }
+
+    private func assertManagedTransactionSurvivesRestart(parent: URL) async throws {
         // macOSの別名パスでも、状態ファイルの世代交代を同じ保存先として扱う。
-        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+        let temporary = parent
             .appendingPathComponent("aishell-mcp-managed-change-set-\(UUID().uuidString)", isDirectory: true)
         let root = temporary.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -129,6 +137,33 @@ final class MCPApplyChangeSetWireTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(
             atPath: root.appendingPathComponent("must-not-exist.txt").path
         ))
+
+        // 別のserviceで保存済み状態と鍵を開き直し、次の取引まで完了させる。
+        let reopenedStore = RuntimeStore(baseDirectory: stateBase)
+        let reopenedWorkspace = WorkspaceStateRuntime(runtimeStore: reopenedStore, startsFSEvents: false)
+        let reopened = MCPServer(runtimeStore: reopenedStore, capabilitySet: "expanded-v1",
+            developmentRuntime: DevelopmentRuntimeService(runtimeStore: reopenedStore, workspaceRuntime: reopenedWorkspace))
+        let reopenedSnapshot = await reopened.callTool(id: .number(5), params: .object([
+            "name": .string("workspace_snapshot"),
+            "arguments": .object(["path": .string(root.path), "context_budget": .number(0)])
+        ]))
+        let reopenedCursor = try XCTUnwrap(reopenedSnapshot.result?.objectValue?["structuredContent"]?.objectValue?["cursor"]?.stringValue)
+        let afterSHA = SHA256.hash(data: Data("after".utf8)).map { String(format: "%02x", $0) }.joined()
+        let second = await reopened.callTool(id: .number(6), params: .object([
+            "name": .string("apply_change_set"),
+            "arguments": .object([
+                "path": .string(root.path), "workspace_cursor": .string(reopenedCursor),
+                "changes": .array([.object([
+                    "change_id": .string("write-after-restart"), "operation": .string("write"),
+                    "path": .string("one.txt"),
+                    "expected": .object(["state": .string("file"), "sha256": .string(afterSHA)]),
+                    "content": .object(["encoding": .string("utf8"), "data": .string("after restart")])
+                ])])
+            ])
+        ]))
+        XCTAssertEqual(second.result?.objectValue?["isError"], .bool(false), "\(String(describing: second.result))")
+        XCTAssertEqual(second.result?.objectValue?["structuredContent"]?.objectValue?["status"], .string("committed"))
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "after restart")
     }
 
     func testApplyChangeSetSchemaIsClosedDestructiveAndIdempotent() throws {

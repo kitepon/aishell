@@ -3,6 +3,25 @@ import XCTest
 @testable import AIShellCore
 
 final class ChangeSetCutoverCoordinatorTests: XCTestCase {
+    func testStoredDateComparisonRejectsChangedExpiryAndMissingDates() {
+        let expiry = Date(timeIntervalSinceReferenceDate: 810_000_000.1234568)
+        XCTAssertFalse(ChangeSetCutoverCoordinator.sameStoredDate(expiry, expiry.addingTimeInterval(0.001)))
+        XCTAssertFalse(ChangeSetCutoverCoordinator.sameStoredDate(expiry, nil))
+        XCTAssertFalse(ChangeSetCutoverCoordinator.sameStoredDate(nil, expiry))
+        XCTAssertTrue(ChangeSetCutoverCoordinator.sameStoredDate(nil, nil))
+    }
+
+    func testFractionalExpirySurvivesTransactionStoreEncodingAndRestart() async throws {
+        let expiry = Date(timeIntervalSinceReferenceDate: 810_000_000.1234568)
+        let fixture = try await CutoverFixture.makeLiveTerminal(retentionExpiresAt: expiry)
+        defer { fixture.cleanup() }
+        let compatibility = CutoverCompatibilityFixture()
+        let coordinator = try fixture.coordinator(compatibility: compatibility)
+        XCTAssertValidated(try await coordinator.run(fixture.source), sourceDigest: fixture.source.sourceDigest)
+        let reopened = try fixture.coordinator(compatibility: compatibility)
+        XCTAssertValidated(try await reopened.validateForPublication(), sourceDigest: fixture.source.sourceDigest)
+    }
+
     func testEveryDurablePhaseCrashResumesExactSnapshotAndPublishesOnlyAfterCompleteMarker() async throws {
         let fixture = try await CutoverFixture.makeLiveTerminal()
         defer { fixture.cleanup() }
@@ -561,11 +580,12 @@ private struct CutoverFixture {
     let source: ChangeSetCutoverLegacySnapshot
     let clock: Date
 
-    static func makeLiveTerminal(includeTransaction: Bool = true) async throws -> Self {
+    static func makeLiveTerminal(includeTransaction: Bool = true,
+        retentionExpiresAt: Date = Date(timeIntervalSince1970: 2_000)) async throws -> Self {
         try await make(
             replayState: .committed,
             transactionState: .committed,
-            retentionExpiresAt: Date(timeIntervalSince1970: 2_000),
+            retentionExpiresAt: retentionExpiresAt,
             includeTransaction: includeTransaction,
             clock: Date(timeIntervalSince1970: 1_000)
         )

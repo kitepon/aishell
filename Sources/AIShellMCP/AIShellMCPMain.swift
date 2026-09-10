@@ -4,6 +4,20 @@ import AIShellCore
 @main
 enum AIShellMCPMain {
     static func main() async {
+        if CommandLine.arguments.count == 2,
+           ["--prepare-keychain", "--check-keychain"].contains(CommandLine.arguments[1]) {
+            do {
+                let result = try ChangeSetKeychainPreparation.run(baseDirectory: RuntimeStore().baseDirectory,
+                    allowInteraction: CommandLine.arguments[1] == "--prepare-keychain")
+                let data = try JSONEncoder().encode(result)
+                print(String(decoding: data, as: UTF8.self))
+                return
+            } catch {
+                let message = (error as? ApplyChangeSetError)?.message ?? error.localizedDescription
+                FileHandle.standardError.write(Data("KEYCHAIN_PREPARATION_FAILED: \(message)\n".utf8))
+                exit(1)
+            }
+        }
         if CommandLine.arguments.dropFirst() == ["--prepare-manager"] {
             do {
                 guard let executable = Bundle.main.executableURL else {

@@ -496,7 +496,7 @@ public actor ChangeSetCutoverCoordinator {
                 }
             case .finalized, .committed:
                 guard let receipt, transaction.runtimeReceiptDigest == receipt.digest,
-                      receipt.terminalAt == transaction.terminalAt else {
+                      Self.sameStoredDate(receipt.terminalAt, transaction.terminalAt) else {
                     throw validationFailure("terminal transaction/runtime receipt time mismatch")
                 }
             default:
@@ -584,8 +584,8 @@ public actor ChangeSetCutoverCoordinator {
             guard Self.isReplayTerminalTransaction(expected.state) else { continue }
             guard let snapshot = try await transactionStore.load(.init(expected.transactionID)),
                   actual.state == expected.state,
-                  actual.terminalAt == expected.terminalAt,
-                  actual.retentionExpiresAt == expected.retentionExpiresAt,
+                  Self.sameStoredDate(actual.terminalAt, expected.terminalAt),
+                  Self.sameStoredDate(actual.retentionExpiresAt, expected.retentionExpiresAt),
                   actual.manifestDigest == expected.manifestDigest,
                   actual.references == expected.references,
                   actual.referenceDigest == expected.referenceDigest,
@@ -655,7 +655,7 @@ public actor ChangeSetCutoverCoordinator {
         if replay.state.isTerminal {
             let responseBindings = transaction.references.filter { $0.kind == "terminal_response" }
             guard let expiresAt = replay.retentionExpiresAt,
-                  transaction.retentionExpiresAt == expiresAt,
+                  Self.sameStoredDate(transaction.retentionExpiresAt, expiresAt),
                   let responseDigest = replay.terminalResponseDigest,
                   responseBindings.count == 1,
                   responseBindings[0].identifier == replay.transactionID,
@@ -1062,6 +1062,12 @@ public actor ChangeSetCutoverCoordinator {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         return try decoder.decode(type, from: data)
+    }
+
+    // transaction storeの日時表現で比較する。Dateへの復元で生じる丸めだけを吸収し、
+    // 保存されるepoch milliseconds自体が異なる値は一致としない。
+    static func sameStoredDate(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        lhs.map { $0.timeIntervalSince1970 * 1000 } == rhs.map { $0.timeIntervalSince1970 * 1000 }
     }
 
     private static func sha256(_ data: Data) -> String {

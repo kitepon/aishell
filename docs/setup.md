@@ -1,7 +1,7 @@
 # 製品単体の導入・診断契約
 
 AIShellの明示入口は`aishell-setup`。macOS 15以降のApple Silicon（arm64）で、
-管理アプリの準備、AIへのMCP登録、設定の読戻し、登録内容による実操作を順に確認する。
+管理アプリの準備、既存Keychain鍵の読取り、AIへのMCP登録、設定の読戻し、登録内容による実操作を順に確認する。
 Windows、Linux、Intel Mac、macOS 14以前は`PLATFORM_UNSUPPORTED`で終了し、設定も常駐processも作らない。
 npm packageの`os`/`cpu`制約も維持する。
 
@@ -53,6 +53,24 @@ LaunchAgentやlogin itemは作らない。`aishell-open`は管理アプリを開
 実操作後に回収する。AIShellの停止状態は保持し、停止中は`RUNTIME_NOT_READY`で再開方法を案内する。
 診断のための一時folderは削除する。MCPが所有する通常の活動記録・保持stateは製品契約に従う。
 AI本体の診断CLIが作るcache等は各AIが所有する。
+
+## 保存済みの編集状態とKeychain
+
+setupは対象AIの実効`AISHELL_STATE_DIRECTORY`ごとに、保存済みの編集状態に対応する鍵を
+導入済みhelperで読み取る。診断結果の`keychain`には確認件数だけを返し、鍵やaccountは出さない。
+通常のMCP要求と`--check`は非対話のまま認証失敗を返す。
+
+更新後のhelperに読取り許可がない場合、明示setupだけがmacOSの認証画面を開く。
+利用者が「常に許可」を選んだ後、別processで非対話の読取りを再確認する。
+一時的な許可だけで次のMCPが読めない場合は`KEYCHAIN_NOT_READY`で終了し、AI登録へ進まない。
+ad-hoc署名は版をまたぐ同じ実行ファイルの識別を保証しないため、更新時に再認証が必要になる場合がある。
+setupは鍵の値、既存ACL、Keychainの検索先を自動変更しない。
+
+新しい編集状態の鍵accountは保存directoryを作成した後の標準化pathから決める。
+旧版がdirectory作成前の別名pathで暗号化した状態は、標準化path・入力path・実pathの既存鍵を
+snapshotの認証で照合して開く。別のstoreが使う鍵も保持し、鍵の上書きや暗号化状態の再作成はしない。
+対応する鍵がない場合は`CHANGE_SET_SECRET_STORE_UNAVAILABLE`、どの既存鍵でも認証できない場合は
+`CHANGE_SET_STORE_CORRUPT`で終了する。
 
 ## AI設定
 
