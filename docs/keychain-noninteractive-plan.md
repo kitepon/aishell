@@ -21,10 +21,14 @@ Keychain方針1件、atomic編集wire7件、旧互換store14件のfocused試験�
 
 このMacの既定Keychainは`SecKeychainGetStatus`がflags=2（unlock bitなし）を返した。
 6ファイル正常系の実バイナリ試験は鍵の新規保存が-25293で即時失敗し、適用前中止を返した。
-これは正常系成功とは数えない。その後、Keychainが解除済みであることをAPIで確認した。
+これは正常系成功とは数えない。その後、既定Keychainのunlock bitをAPIで確認した。
+ただし同じMac上のCIが既定Keychainを一時切替するため、この値をlogin Keychainの状態とは断定できない。
 解除後の実バイナリ試験では状態保存の`contentMismatch`を検出した。
 台帳の保存先は`/tmp`へ正規化されるが、旧世代検索では`/private/tmp`の生パスと比較していた。
 そのため同じ保存先の2世代がmaterializedのまま残り、旧世代のSHA検査で失敗した。
 保存先を台帳と同じ正規形へ揃えた。wire正常系を`/private/tmp`で実行し、修正前の同一失敗と
 修正後のwire7件成功を確認した。
-npm 0.6.1の公開待ちは停止した。追加修正のrelease gate、公開、公開版導入・smokeは未完了。
+修正commit `660e3209bf85eae123416be739508ba31a613e9e` をmainへpushした。
+修正版debugバイナリの6ファイルMCP実操作は3938msでcommittedとなり、全内容一致を確認した。
+配布package検証は成功したが、配布バイナリの6ファイル試験はKeychain書込み-25293で適用前中止となった。
+npm 0.6.1の公開待ちは停止した。追加修正のCI、公開、公開版導入・smokeは未完了。
