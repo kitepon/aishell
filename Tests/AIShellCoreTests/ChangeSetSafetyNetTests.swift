@@ -372,9 +372,6 @@ final class ChangeSetSafetyNetTests: XCTestCase {
         let registrySlotCount = try await f.probe.registrySlotCount(service: f.service)
         XCTAssertEqual(registrySlotCount, 64)
 
-        for tamper in ApplyChangeSetOwnerProofTamper.allCases {
-            await XCTAssertThrowsApplyCode(.clientOwnerProofInvalid) { try await f.performControl(with: tamper) }
-        }
         let pending = try await f.singleWriteRequest(clientID: reallocated.clientID,
             epoch: reallocated.epoch, sequence: 1)
         await f.faults.crashOnce(at: .admissionFSyncAfter)
@@ -413,7 +410,7 @@ final class ChangeSetSafetyNetTests: XCTestCase {
         _ = try await full.performFreshControl()
     }
 
-    func testReservationCanonicalEnvelopeTamperAndSecretNonDisclosure() async throws {
+    func testReservationRecordCorruptionStopsBeforeEditing() async throws {
         let f = try await ChangeSetFixture.make()
         defer { f.cleanup() }
         let request = try await f.canonicalReservationRequest()
@@ -427,12 +424,6 @@ final class ChangeSetSafetyNetTests: XCTestCase {
             await XCTAssertThrowsApplyCode(.changeSetReservationCorrupt) { try await f.service.resumeReservation(reservation.id) }
             let targetMutationReceiptCount = try await f.probe.targetMutationReceiptCount()
             XCTAssertEqual(targetMutationReceiptCount, 0)
-        }
-        for secretFailure in ApplyChangeSetSecretFailure.allCases {
-            try await f.probe.injectSecretFailure(secretFailure)
-            await XCTAssertThrowsApplyCode(.changeSetSecretStoreUnavailable) { try await f.service.apply(request) }
-            let logsContainNone = try await f.probe.logsContainNone(of: request.secretFragments)
-            XCTAssertTrue(logsContainNone)
         }
     }
 
@@ -593,7 +584,7 @@ private struct ChangeSetFixture {
         let faults = ApplyChangeSetFailureInjector()
         let clock = ApplyChangeSetTestClock(now: Date(timeIntervalSince1970: 1_800_000_000))
         let probe = try ApplyChangeSetTestProbe(baseDirectory: base, disabledCapabilities: disabledCapabilities, clock: clock)
-        let service = try ApplyChangeSetService(runtimeStore: runtime, stateDirectory: base.appendingPathComponent("state", isDirectory: true), evidenceStore: probe.evidenceStore, secretStore: probe.secretStore, workspaceRuntime: probe.workspaceRuntime, failureInjector: faults, clock: clock)
+        let service = try ApplyChangeSetService(runtimeStore: runtime, stateDirectory: base.appendingPathComponent("state", isDirectory: true), evidenceStore: probe.evidenceStore, stateStore: probe.stateStore, workspaceRuntime: probe.workspaceRuntime, failureInjector: faults, clock: clock)
         try await service.bootstrap(root: root)
         let clients = try await probe.allocateClients(count: allocationCount, service: service)
         try await probe.seedControlReceipts(count: controlReceiptCount, service: service)
@@ -697,7 +688,6 @@ private struct ChangeSetFixture {
     func replayRequest(sequence: Int) throws -> ApplyChangeSetRequest { try probe.replayRequest(client: client, sequence: sequence) }
     func allocateClient() async throws -> ApplyChangeSetClient { try await probe.allocateClient(service: service) }
     func retireTerminalClient(slot: Int) async throws -> ApplyChangeSetClient { try await probe.retireTerminalClient(slot: slot, service: service) }
-    func performControl(with tamper: ApplyChangeSetOwnerProofTamper) async throws -> ApplyChangeSetControlResult { try await probe.performControl(with: tamper, service: service) }
     func rotate(_ client: ApplyChangeSetClient) async throws -> ApplyChangeSetControlResult { try await probe.rotate(client, service: service) }
     func retire(_ client: ApplyChangeSetClient) async throws -> ApplyChangeSetControlResult { try await probe.retire(client, service: service) }
     func reinitializeRegistry() async throws -> ApplyChangeSetControlResult { try await probe.reinitializeRegistry(service: service) }

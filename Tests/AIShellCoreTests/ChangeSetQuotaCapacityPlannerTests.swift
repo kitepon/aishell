@@ -46,7 +46,7 @@ final class ChangeSetQuotaCapacityPlannerTests: XCTestCase {
         let digest = String(repeating: "d", count: 64)
         let filesystem = try ChangeSetQuotaCapacityPlanner.filesystemPayload(request: request, digest: digest, root: root)
         let canonical = try ChangeSetQuotaCapacityPlanner.canonicalEnvelope(reservationID: String(repeating: "r", count: 36),
-            digest: digest, request: request, root: root, encryptionKey: SymmetricKey(size: .bits256))
+            digest: digest, request: request, root: root)
         let metadata = try ChangeSetQuotaCapacityPlanner.evidenceMetadata(artifact: filesystem.diff.artifact,
             retentionSeconds: request.retentionSeconds)
         let abort = Data("{\"paths\":[]}".utf8)
@@ -74,7 +74,7 @@ final class ChangeSetQuotaCapacityPlannerTests: XCTestCase {
         filesystem: ChangeSetQuotaCapacityPlanner.FilesystemPayload, digest: String
     ) throws -> [ChangeSetQuotaLedger.Capacity] {
         let canonical = try ChangeSetQuotaCapacityPlanner.canonicalEnvelope(reservationID: String(repeating: "r", count: 36),
-            digest: digest, request: request, root: root, encryptionKey: SymmetricKey(size: .bits256))
+            digest: digest, request: request, root: root)
         let metadata = try ChangeSetQuotaCapacityPlanner.evidenceMetadata(artifact: filesystem.diff.artifact,
             retentionSeconds: request.retentionSeconds)
         let abort = Data("{\"paths\":[]}".utf8)

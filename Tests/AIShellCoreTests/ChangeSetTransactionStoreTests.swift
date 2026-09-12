@@ -3,7 +3,7 @@ import XCTest
 @testable import AIShellCore
 
 final class ChangeSetTransactionStoreTests: XCTestCase {
-    func testTransactionSnapshotsAreEncryptedOwnerOnlyAndRestartReadable() async throws {
+    func testTransactionSnapshotsArePlainJSONOwnerOnlyAndRestartReadable() async throws {
         let fixture = try Fixture()
         let store = try fixture.makeStore()
         let preparing = fixture.snapshot(state: .preparing, payload: Data("secret-payload".utf8))
@@ -11,8 +11,10 @@ final class ChangeSetTransactionStoreTests: XCTestCase {
         try await store.persistTransition(preparing)
 
         let transactionDirectory = fixture.transactionDirectory
-        let encrypted = try Data(contentsOf: transactionDirectory.appendingPathComponent("snapshot.enc"))
-        XCTAssertFalse(String(data: encrypted, encoding: .utf8)?.contains("secret-payload") == true)
+        let bytes = try Data(contentsOf: transactionDirectory.appendingPathComponent("snapshot.enc"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        XCTAssertEqual(object["payload"] as? String, preparing.payload.base64EncodedString())
+        XCTAssertNil(object["ciphertext"])
         XCTAssertEqual(try permissions(fixture.storeDirectory), 0o700)
         XCTAssertEqual(try permissions(transactionDirectory), 0o700)
         XCTAssertEqual(try permissions(transactionDirectory.appendingPathComponent("snapshot.enc")), 0o600)
@@ -419,7 +421,7 @@ private struct Fixture {
 
     func makeStore(crashAfterImportedTransactions: Int? = nil) throws -> ChangeSetTransactionStore {
         try ChangeSetTransactionStore(
-            directory: storeDirectory, encryptionKey: key,
+            directory: storeDirectory, legacyKey: key,
             maxRuntimeReceipts: maxRuntimeReceipts, terminalRetention: terminalRetention,
             migrationCrashAfterImportedTransactions: crashAfterImportedTransactions
         )

@@ -53,16 +53,22 @@ envや他の設定内容は診断へ出さない。
 ## 編集状態の更新
 
 複数ファイル編集、競合検出、差分の保持、再起動後の継続は維持する。
-新しい編集状態は`AISHELL_STATE_DIRECTORY`（省略時は`~/Library/Application Support/AIShell`）の
-`apply-change-set-local-v1/`へ保存する。内部の鍵は0600の`state-key`に保存し、同時起動時も同じ鍵を共有する。Keychainへの読取り・書込み・認証は行わない。
+編集状態は`AISHELL_STATE_DIRECTORY`（省略時は`~/Library/Application Support/AIShell`）の
+`apply-change-set-local-v1/`へ通常のJSONで保存する。新しい暗号鍵・暗号署名・所有者証明は作らない。
+ファイル名の`.enc`や`.enc.json`は既存状態との対応を維持するため残るが、新しい内容は暗号化しない。
+記録の破損・競合検出、途中の編集を復旧する状態、差分と実行結果、使用ログは維持する。
 
-旧`apply-change-set/`の暗号化履歴とKeychain項目は変更しない。
+ローカル鍵を使っていた版の暗号化記録は、必要になった時だけ既存の`state-key`で読み取る。
+通常の編集で更新する記録から平文へ切り替え、履歴や鍵を一括変換・削除する処理は持たない。
+旧暗号化記録の読取りに鍵が必要なため、`state-key`を手動削除しない。
+平文で更新した状態は暗号化のみ対応の旧版では読めないため、その状態のまま旧版へ戻さない。
+
+さらに古いKeychain版の`apply-change-set/`とKeychain項目は変更しない。
 旧作業領域に`marker.json`だけがある対象では、rootの実体と記録の一致を確認して新しい状態を開始する。
-旧版の作業ファイルが残っている場合は`CHANGE_SET_STORE_CORRUPT`で停止し、ファイルを消さない。
-その場合は旧版で未完了編集を解決してから更新する必要がある。
-旧client receiptと編集取引の履歴は新しい状態へ移さない。通常のファイルと使用ログは維持する。
+その版の作業ファイルが残る対象は`CHANGE_SET_STORE_CORRUPT`で停止し、ファイルを消さない。
+旧版で未完了編集を解決してから更新する必要がある。Keychain版の履歴は新状態へ移さない。
 
-新しい暗号化状態に対応する`state-key`が欠けた場合は`CHANGE_SET_SECRET_STORE_UNAVAILABLE`で終了し、別の鍵で上書きしない。
+旧暗号化記録の鍵が欠けている場合はエラーを返し、記録や鍵を別の内容で上書きしない。
 取引開始前の失敗は`error.request_status: aborted_before_side_effect`と空の`changed_paths`で確認できる。
 
 ## AI設定

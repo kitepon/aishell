@@ -46,7 +46,7 @@ final class MCPApplyChangeSetWireTests: XCTestCase {
         let changeSetState = stateBase.appendingPathComponent("apply-change-set-local-v1", isDirectory: true)
             .appendingPathComponent(rootDigest, isDirectory: true)
         defer {
-            ApplyChangeSetSecretStore.removeKeyForTesting(stateDirectory: changeSetState)
+
             try? FileManager.default.removeItem(at: temporary)
         }
 

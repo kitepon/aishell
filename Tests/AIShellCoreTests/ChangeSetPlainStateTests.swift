@@ -4,34 +4,32 @@ import Foundation
 import XCTest
 @testable import AIShellCore
 
-final class LocalChangeSetKeyTests: XCTestCase {
-    func testKeyIsSharedAcrossConcurrentStartsAndPathAliases() async throws {
+final class ChangeSetPlainStateTests: XCTestCase {
+    func testFreshStateDoesNotCreateAKey() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: base) }
-        let keys = try await withThrowingTaskGroup(of: Data.self) { group in
-            for _ in 0..<8 { group.addTask { try LocalChangeSetKey.loadOrCreate(in: base, encryptedStateExists: false) } }
-            var keys: [Data] = []
-            for try await key in group { keys.append(key) }
-            return keys
-        }
-        XCTAssertEqual(Set(keys).count, 1)
-        XCTAssertEqual(keys[0].count, 32)
-        XCTAssertEqual(try LocalChangeSetKey.loadOrCreate(in: base.resolvingSymlinksInPath(), encryptedStateExists: true), keys[0])
-        let info = try FileManager.default.attributesOfItem(atPath: base.appendingPathComponent(LocalChangeSetKey.filename).path)
-        XCTAssertEqual((info[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+        XCTAssertNil(try LegacyChangeSetEncryption.key(in: base))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: base.path))
     }
 
-    func testMissingKeyDoesNotReplaceEncryptedState() throws {
+    func testLegacyCiphertextIsReadableWithoutChangingItOrItsKey() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: base) }
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-        let snapshot = base.appendingPathComponent("apply-change-set-state.enc.json")
-        try Data("旧版の暗号化記録".utf8).write(to: snapshot)
-        XCTAssertThrowsError(try LocalChangeSetKey.loadOrCreate(in: base, encryptedStateExists: true)) {
+        let key = Data(repeating: 0x42, count: 32)
+        let keyURL = base.appendingPathComponent("state-key")
+        try key.write(to: keyURL)
+        let plaintext = Data("旧版の保存内容".utf8)
+        let box = try AES.GCM.seal(plaintext, using: SymmetricKey(data: key))
+        let data = try JSONSerialization.data(withJSONObject: [
+            "nonce": Data(box.nonce).base64EncodedString(),
+            "ciphertext": box.ciphertext.base64EncodedString(), "tag": box.tag.base64EncodedString()])
+        XCTAssertEqual(try LegacyChangeSetEncryption.decode(data,
+            key: LegacyChangeSetEncryption.key(in: base)), plaintext)
+        XCTAssertEqual(try Data(contentsOf: keyURL), key)
+        XCTAssertThrowsError(try LegacyChangeSetEncryption.decode(data, key: nil)) {
             XCTAssertEqual(($0 as? ApplyChangeSetError)?.code, .changeSetSecretStoreUnavailable)
         }
-        XCTAssertFalse(FileManager.default.fileExists(atPath: base.appendingPathComponent(LocalChangeSetKey.filename).path))
-        XCTAssertEqual(try String(contentsOf: snapshot, encoding: .utf8), "旧版の暗号化記録")
     }
 
     func testIdleLegacyNamespaceStartsWithoutReadingLegacyKey() async throws {
@@ -44,7 +42,7 @@ final class LocalChangeSetKeyTests: XCTestCase {
             stateDirectory: fixture.current, workspaceRuntime: WorkspaceStateRuntime(runtimeStore: runtime, startsFSEvents: false))
         XCTAssertEqual(try Data(contentsOf: fixture.legacy.appendingPathComponent("apply-change-set-state.enc.json")), oldSnapshot)
         XCTAssertEqual(try Data(contentsOf: fixture.namespace.appendingPathComponent("marker.json")), marker)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.current.appendingPathComponent(LocalChangeSetKey.filename).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.current.appendingPathComponent("state-key").path))
         _ = try await ApplyChangeSetService.production(runtimeStore: runtime, root: fixture.root,
             stateDirectory: fixture.current, workspaceRuntime: WorkspaceStateRuntime(runtimeStore: runtime, startsFSEvents: false))
     }

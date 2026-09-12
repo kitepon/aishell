@@ -185,25 +185,18 @@ public actor ChangeSetCutoverCoordinator {
         let completedAt: Date
     }
 
-    private struct Envelope: Codable {
-        let schema: String
-        let nonce: Data
-        let ciphertext: Data
-        let tag: Data
-    }
-
     private let directory: URL
     private let registry: ChangeSetClientRegistry
     private let transactionStore: ChangeSetTransactionStore
     private let compatibility: any ChangeSetCutoverCompatibilityPreparing
-    private let key: SymmetricKey
+    private let legacyKey: Data?
     private let now: @Sendable () -> Date
     private let crashAfter: ChangeSetCutoverCrashPoint?
     private let recordOpenedHook: (@Sendable (URL) -> Void)?
 
     public init(
         directory: URL,
-        encryptionKey: Data,
+        legacyKey: Data? = nil,
         registry: ChangeSetClientRegistry,
         transactionStore: ChangeSetTransactionStore,
         compatibility: any ChangeSetCutoverCompatibilityPreparing,
@@ -211,12 +204,11 @@ public actor ChangeSetCutoverCoordinator {
         crashAfter: ChangeSetCutoverCrashPoint? = nil,
         recordOpenedHook: (@Sendable (URL) -> Void)? = nil
     ) throws {
-        guard encryptionKey.count >= 32 else { throw ChangeSetCutoverError(.invalidKey) }
         self.directory = directory.standardizedFileURL
         self.registry = registry
         self.transactionStore = transactionStore
         self.compatibility = compatibility
-        self.key = SymmetricKey(data: Data(SHA256.hash(data: encryptionKey)))
+        self.legacyKey = legacyKey
         self.now = now
         self.crashAfter = crashAfter
         self.recordOpenedHook = recordOpenedHook
@@ -923,13 +915,7 @@ public actor ChangeSetCutoverCoordinator {
     }
 
     private func writeRecord<T: Encodable>(_ value: T, to url: URL) throws {
-        let plaintext = try Self.encode(value)
-        let box = try AES.GCM.seal(plaintext, using: key, authenticating: Self.markerAAD)
-        let envelope = Envelope(
-            schema: "aishell.change-set-cutover-envelope.v1",
-            nonce: Data(box.nonce), ciphertext: box.ciphertext, tag: box.tag
-        )
-        let record = try Self.encode(envelope)
+        let record = try Self.encode(value)
         guard record.count <= Self.maximumRecordBytes else {
             throw ChangeSetCutoverError(.stateCorrupt, "cutover record exceeds 16 MiB")
         }
@@ -939,16 +925,10 @@ public actor ChangeSetCutoverCoordinator {
     private func readRecord<T: Decodable>(at url: URL) throws -> T? {
         guard Self.exists(url) else { return nil }
         do {
-            let envelope = try Self.decode(Envelope.self, from: secureRead(url))
-            guard envelope.schema == "aishell.change-set-cutover-envelope.v1" else {
-                throw ChangeSetCutoverError(.stateCorrupt)
-            }
-            let box = try AES.GCM.SealedBox(
-                nonce: AES.GCM.Nonce(data: envelope.nonce),
-                ciphertext: envelope.ciphertext,
-                tag: envelope.tag
-            )
-            return try Self.decode(T.self, from: AES.GCM.open(box, using: key, authenticating: Self.markerAAD))
+            let data = try secureRead(url)
+            let stored = try LegacyChangeSetEncryption.schema(data) == "aishell.change-set-cutover-envelope.v1"
+                ? LegacyChangeSetEncryption.decode(data, key: legacyKey, derived: true, aad: Self.markerAAD) : data
+            return try Self.decode(T.self, from: stored)
         } catch let error as ChangeSetCutoverError {
             throw error
         } catch {

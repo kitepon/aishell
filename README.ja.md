@@ -152,8 +152,8 @@ AISHELL_CAPABILITY_SET=expanded-v1 AISHELL_TOOL_PROFILE=full /opt/homebrew/bin/a
 
 full profileにはfile一覧・read、SHA-256競合検出付きatomic update、copy/move/rename/Trash、直接process実行、app discovery/launch、runtime statusが含まれる。
 
-`apply_change_set`はKeychainを使わない。操作の挙動、競合検出、差分、再起動後の継続を維持し、内部データの鍵は同じOSユーザーだけが読めるローカルファイルへ保存する。
-旧版の暗号化履歴は変更せず残し、未完了の編集ファイルがない対象では新しい状態で操作を開始する。
+`apply_change_set`は編集状態を通常のJSONとして保存し、新しい暗号鍵や所有者証明を作らない。競合検出、差分、再起動後の継続を維持する。
+ローカル鍵を使っていた旧版の記録は必要になった時に読み取り、通常の編集で更新する記録から平文へ切り替える。旧鍵や履歴の一括削除は行わない。
 使用ログは`~/Library/Application Support/AIShell/activity.jsonl`へ保存する。詳しくは[導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
 
 ## 実行と安全性の境界

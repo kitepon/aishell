@@ -510,8 +510,6 @@ public actor ContextCompilerService {
     }
 
     private func refreshProvidersIfNeeded() async throws {
-        let configuration = try await runtimeStore.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
         let resolver = await runtimeStore.pathResolver()
         let binding = Self.digestStrings([resolver.rootURL.path, "unrestricted-v1"])
         guard providerBinding != binding else { return }
@@ -784,8 +782,6 @@ public actor ContextCompilerService {
     }
 
     private func activeResolver() async throws -> PathResolver {
-        let configuration = try await runtimeStore.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
         return await runtimeStore.pathResolver()
     }
 

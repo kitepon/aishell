@@ -273,8 +273,6 @@ public actor NativeFileService {
     }
 
     private func activeResolver() async throws -> PathResolver {
-        let configuration = try await store.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
         return await store.pathResolver()
     }
 

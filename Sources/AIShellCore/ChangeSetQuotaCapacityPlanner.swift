@@ -124,29 +124,24 @@ struct ChangeSetQuotaCapacityPlanner {
         let requestSequence: Int
         let plaintextLength: Int
         let quotaBytes: Int
-        let nonce: String
-        let ciphertext: String
-        let tag: String
+        let request: ApplyChangeSetRequest
     }
 
     static func canonicalEnvelope(
         reservationID: String,
         digest: String,
         request: ApplyChangeSetRequest,
-        root: URL,
-        encryptionKey: SymmetricKey
+        root: URL
     ) throws -> Data {
         let plaintext = try sortedEncoder.encode(request)
         let aad = ReservationAAD(schema: "aishell.apply-change-set-reservation-record.v1", reservationID: reservationID,
             requestDigest: digest, rootDigest: root.standardizedFileURL.resolvingSymlinksInPath().path.sha256,
             clientID: request.clientID, clientEpoch: request.clientEpoch, requestSequence: request.requestSequence,
             plaintextLength: plaintext.count, quotaBytes: 0)
-        let sealed = try AES.GCM.seal(plaintext, using: encryptionKey, authenticating: try sortedEncoder.encode(aad))
         return try sortedEncoder.encode(ReservationRecord(schema: aad.schema, reservationID: aad.reservationID,
             requestDigest: aad.requestDigest, rootDigest: aad.rootDigest, clientID: aad.clientID,
             clientEpoch: aad.clientEpoch, requestSequence: aad.requestSequence,
-            plaintextLength: aad.plaintextLength, quotaBytes: 0, nonce: Data(sealed.nonce).base64EncodedString(),
-            ciphertext: sealed.ciphertext.base64EncodedString(), tag: sealed.tag.base64EncodedString()))
+            plaintextLength: aad.plaintextLength, quotaBytes: 0, request: request))
     }
 
     struct FilesystemPayload: Sendable {

@@ -9,8 +9,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         defer { fixture.cleanup() }
         let registry = try fixture.open()
         _ = try await registry.allocate(
-            controlRequestID: fixture.uuid(60), proofIDDigest: fixture.digest(60),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            controlRequestID: fixture.uuid(60), requestDigest: fixture.digest(60),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: 0)
         let allocated = await registry.snapshot()
         let client = try XCTUnwrap(allocated.slots.first {
@@ -61,8 +61,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
 
         let receipt = try await registry.allocate(
             controlRequestID: fixture.uuid(1),
-            proofIDDigest: fixture.digest(1),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(1),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: initial.generation
         )
         XCTAssertEqual(receipt.registryGeneration, 1)
@@ -76,8 +76,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         XCTAssertEqual(restartedSnapshot.slots.filter { $0.allocationState == .active }.count, 1)
         let replayedReceipt = try await restarted.allocate(
             controlRequestID: fixture.uuid(1),
-            proofIDDigest: fixture.digest(1),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(1),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: initial.generation
         )
         XCTAssertEqual(replayedReceipt.clientID, receipt.clientID)
@@ -91,8 +91,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         let registry = try fixture.open()
         _ = try await registry.allocate(
             controlRequestID: fixture.uuid(2),
-            proofIDDigest: fixture.digest(2),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(2),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: 0
         )
 
@@ -108,7 +108,7 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         }
     }
 
-    func testGenerationCASProofConsumptionAndControlReplay() async throws {
+    func testGenerationCASAndControlReplay() async throws {
         let fixture = try RegistryFixture()
         defer { fixture.cleanup() }
         let registry = try fixture.open()
@@ -116,23 +116,15 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         let proof = fixture.digest(3)
         let expiry = fixture.clock.now().addingTimeInterval(300)
 
-        let first = try await registry.allocate(controlRequestID: requestID, proofIDDigest: proof, proofExpiresAt: expiry, expectedRegistryGeneration: 0)
-        let replay = try await registry.allocate(controlRequestID: requestID, proofIDDigest: proof, proofExpiresAt: expiry, expectedRegistryGeneration: 0)
+        let first = try await registry.allocate(controlRequestID: requestID, requestDigest: proof, expiresAt: expiry, expectedRegistryGeneration: 0)
+        let replay = try await registry.allocate(controlRequestID: requestID, requestDigest: proof, expiresAt: expiry, expectedRegistryGeneration: 0)
         XCTAssertEqual(replay, first)
 
-        await XCTAssertRegistryError(.ownerProofConsumed) {
-            try await registry.allocate(
-                controlRequestID: fixture.uuid(4),
-                proofIDDigest: proof,
-                proofExpiresAt: expiry,
-                expectedRegistryGeneration: first.registryGeneration
-            )
-        }
         await XCTAssertRegistryError(.generationChanged) {
             try await registry.allocate(
                 controlRequestID: fixture.uuid(5),
-                proofIDDigest: fixture.digest(5),
-                proofExpiresAt: expiry,
+                requestDigest: fixture.digest(5),
+                expiresAt: expiry,
                 expectedRegistryGeneration: 0
             )
         }
@@ -144,8 +136,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         let registry = try fixture.open()
         _ = try await registry.allocate(
             controlRequestID: fixture.uuid(6),
-            proofIDDigest: fixture.digest(6),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(6),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: 0
         )
         let allocatedSnapshot = await registry.snapshot()
@@ -225,16 +217,16 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         let registry = try fixture.open()
         _ = try await registry.allocate(
             controlRequestID: fixture.uuid(7),
-            proofIDDigest: fixture.digest(7),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(7),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: 0
         )
         let initialSnapshot = await registry.snapshot()
         let first = try XCTUnwrap(initialSnapshot.slots.first { $0.allocationState == .active })
         let rotate = try await registry.rotateEpoch(
             controlRequestID: fixture.uuid(8),
-            proofIDDigest: fixture.digest(8),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(8),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             clientID: first.clientID,
             expectedEpoch: first.currentEpoch,
             nextEpoch: first.currentEpoch + 1,
@@ -245,8 +237,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         }
         _ = try await registry.retire(
             controlRequestID: fixture.uuid(9),
-            proofIDDigest: fixture.digest(9),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(9),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             clientID: first.clientID,
             expectedEpoch: first.currentEpoch + 1,
             expectedRegistryGeneration: rotate.registryGeneration
@@ -259,8 +251,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         let beforeReallocate = await registry.snapshot()
         let allocated = try await registry.allocate(
             controlRequestID: fixture.uuid(10),
-            proofIDDigest: fixture.digest(10),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(10),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: beforeReallocate.generation
         )
         let reusedSnapshot = await registry.snapshot()
@@ -277,14 +269,14 @@ final class ChangeSetClientRegistryTests: XCTestCase {
 
         let firstReceipt = try await registry.allocate(
             controlRequestID: fixture.uuid(40),
-            proofIDDigest: fixture.digest(40),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(40),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: 0
         )
         let secondReceipt = try await registry.allocate(
             controlRequestID: fixture.uuid(41),
-            proofIDDigest: fixture.digest(41),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(41),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: firstReceipt.registryGeneration
         )
         let snapshot = await registry.snapshot()
@@ -367,8 +359,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
 
         let postImportAllocation = try await registry.allocate(
             controlRequestID: fixture.uuid(64),
-            proofIDDigest: fixture.digest(64),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(64),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: legacy.registryGeneration
         )
         XCTAssertEqual(postImportAllocation.registryGeneration, legacy.registryGeneration + 1)
@@ -380,8 +372,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         let allocatedEpoch = try XCTUnwrap(postImportAllocation.currentEpoch)
         let rotated = try await registry.rotateEpoch(
             controlRequestID: fixture.uuid(65),
-            proofIDDigest: fixture.digest(65),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(65),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             clientID: allocatedClientID,
             expectedEpoch: allocatedEpoch,
             nextEpoch: allocatedEpoch + 1,
@@ -391,8 +383,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         XCTAssertEqual(provenanceAfterRotate, imported)
         let retired = try await registry.retire(
             controlRequestID: fixture.uuid(66),
-            proofIDDigest: fixture.digest(66),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(66),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             clientID: allocatedClientID,
             expectedEpoch: allocatedEpoch + 1,
             expectedRegistryGeneration: rotated.registryGeneration
@@ -411,14 +403,6 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         XCTAssertEqual(replayed.registryGeneration, legacy.registryGeneration)
         let restartedReferences = await restarted.replayReferences()
         XCTAssertEqual(restartedReferences, references)
-        await XCTAssertRegistryError(.ownerProofConsumed) {
-            try await restarted.allocate(
-                controlRequestID: fixture.uuid(62),
-                proofIDDigest: fixture.digest(60),
-                proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
-                expectedRegistryGeneration: retired.registryGeneration
-            )
-        }
     }
 
     func testLegacyCutoverRejectsDifferentRetryAndNonPristineStore() async throws {
@@ -455,8 +439,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         let nonPristine = try other.open()
         _ = try await nonPristine.allocate(
             controlRequestID: other.uuid(70),
-            proofIDDigest: other.digest(70),
-            proofExpiresAt: other.clock.now().addingTimeInterval(300),
+            requestDigest: other.digest(70),
+            expiresAt: other.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: 0
         )
         await XCTAssertRegistryError(.legacyImportNotPristine) {
@@ -602,7 +586,7 @@ final class ChangeSetClientRegistryTests: XCTestCase {
         let expiredReceipts: [ChangeSetClientControlReceipt?] = (0..<ChangeSetClientRegistry.controlReceiptCapacity).map { index in
             ChangeSetClientControlReceipt(
                 controlRequestID: fixture.uuid(100 + index),
-                proofIDDigest: fixture.digest(100 + index),
+                requestDigest: fixture.digest(100 + index),
                 action: .allocate,
                 resultDigest: fixture.digest(101 + index),
                 registryGeneration: base.registryGeneration,
@@ -627,8 +611,8 @@ final class ChangeSetClientRegistryTests: XCTestCase {
 
         _ = try await registry.allocate(
             controlRequestID: fixture.uuid(240),
-            proofIDDigest: fixture.digest(240),
-            proofExpiresAt: fixture.clock.now().addingTimeInterval(300),
+            requestDigest: fixture.digest(240),
+            expiresAt: fixture.clock.now().addingTimeInterval(300),
             expectedRegistryGeneration: base.registryGeneration
         )
         let afterAppend = await registry.snapshot()
@@ -655,7 +639,7 @@ private struct RegistryFixture {
     }
 
     func open() throws -> ChangeSetClientRegistry {
-        try ChangeSetClientRegistry(directory: directory, rootIdentityDigest: digest(250), hmacKey: key, now: clock.now)
+        try ChangeSetClientRegistry(directory: directory, rootIdentityDigest: digest(250), now: clock.now)
     }
 
     func cleanup() { try? FileManager.default.removeItem(at: directory) }
@@ -717,7 +701,7 @@ private struct RegistryFixture {
         var receipts = Array<ChangeSetClientControlReceipt?>(repeating: nil, count: ChangeSetClientRegistry.controlReceiptCapacity)
         receipts[0] = ChangeSetClientControlReceipt(
             controlRequestID: uuid(60),
-            proofIDDigest: digest(60),
+            requestDigest: digest(60),
             action: .allocate,
             resultDigest: digest(63),
             registryGeneration: generation,

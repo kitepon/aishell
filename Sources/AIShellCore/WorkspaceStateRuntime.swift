@@ -1202,8 +1202,6 @@ public actor WorkspaceStateRuntime {
     }
 
     private func activeResolver() async throws -> PathResolver {
-        let configuration = try await runtimeStore.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
         return await runtimeStore.pathResolver()
     }
 

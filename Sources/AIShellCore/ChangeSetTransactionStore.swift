@@ -3,7 +3,7 @@ import Darwin
 import Foundation
 
 /// ADR 0017 の transaction/runtime receipt を、root 全体の巨大 snapshot から分離して保持する。
-/// 各 transaction は独立した暗号化 snapshot と append-only WAL を持つため、一件の更新が
+/// 各 transaction は独立した JSON snapshot と append-only WAL を持つため、一件の更新が
 /// 他 transaction の durable bytes を再書き込みしない。
 public actor ChangeSetTransactionStore {
     public struct Snapshot: Codable, Equatable, Sendable {
@@ -74,7 +74,7 @@ public actor ChangeSetTransactionStore {
         }
     }
 
-    /// startup相互照合用のmetadata view。暗号化payload/evidence bytesは公開しない。
+    /// startup相互照合用のmetadata view。payload/evidence bytesは公開しない。
     public struct TransactionReference: Codable, Equatable, Sendable {
         public let transactionID: ApplyChangeSetTransactionID
         public let state: ApplyChangeSetTransactionState
@@ -125,13 +125,6 @@ public actor ChangeSetTransactionStore {
         let directoryName: String
     }
 
-    private struct Envelope: Codable, Sendable {
-        let schema: String
-        let nonce: Data
-        let ciphertext: Data
-        let tag: Data
-    }
-
     private struct JournalPayload: Codable, Equatable, Sendable {
         let schema: String
         let sequence: UInt64
@@ -170,7 +163,7 @@ public actor ChangeSetTransactionStore {
 
     private let directory: URL
     private let transactionsDirectory: URL
-    private let key: SymmetricKey
+    private let legacyKey: Data?
     private let maxRuntimeReceipts: Int
     private let maxTransactionReferences: Int
     private let terminalRetention: TimeInterval
@@ -182,17 +175,16 @@ public actor ChangeSetTransactionStore {
 
     public init(
         directory: URL,
-        encryptionKey: Data,
+        legacyKey: Data? = nil,
         maxRuntimeReceipts: Int = 512,
         maxTransactionReferences: Int = 4_096,
         terminalRetention: TimeInterval = 86_400,
         migrationCrashAfterImportedTransactions: Int? = nil,
         fileManager: FileManager = .default
     ) throws {
-        guard !encryptionKey.isEmpty else { throw StoreError.invalidKey }
         self.directory = directory.standardizedFileURL
         self.transactionsDirectory = directory.appendingPathComponent("transactions", isDirectory: true)
-        self.key = SymmetricKey(data: Data(SHA256.hash(data: encryptionKey)))
+        self.legacyKey = legacyKey
         self.maxRuntimeReceipts = max(1, maxRuntimeReceipts)
         self.maxTransactionReferences = max(1, maxTransactionReferences)
         self.terminalRetention = max(0, terminalRetention)
@@ -309,7 +301,7 @@ public actor ChangeSetTransactionStore {
                 schema: "aishell.change-set-legacy-migration-intent.v1", provenance: provenance,
                 requestDigest: requestDigest, request: request
             )
-            try atomicWrite(try seal(intent), to: intentURL)
+            try atomicWrite(try encodeRecord(intent), to: intentURL)
         }
 
         var importedCount = 0
@@ -333,7 +325,7 @@ public actor ChangeSetTransactionStore {
             schema: "aishell.change-set-legacy-migration-complete.v1", provenance: provenance,
             requestDigest: requestDigest, request: nil
         )
-        try atomicWrite(try seal(complete), to: completeURL)
+        try atomicWrite(try encodeRecord(complete), to: completeURL)
         try fileManager.removeItem(at: intentURL)
         try Self.syncDirectory(directory)
     }
@@ -418,7 +410,7 @@ public actor ChangeSetTransactionStore {
         guard !fileManager.fileExists(atPath: transactionDirectory.path) else { throw StoreError.orphan(directoryName) }
         try Self.createOwnerOnlyDirectory(transactionDirectory, fileManager: fileManager)
         let identity = Identity(schema: "aishell.change-set-transaction-identity.v1", transactionID: rawID, directoryName: directoryName)
-        try atomicWrite(try seal(identity), to: transactionDirectory.appendingPathComponent("identity.enc"))
+        try atomicWrite(try encodeRecord(identity), to: transactionDirectory.appendingPathComponent("identity.enc"))
         guard snapshot.revision == 0 else { throw StoreError.staleRevision(expected: 0, actual: snapshot.revision) }
         try writeTransition(snapshot, fromState: nil, directoryName: directoryName, kind: .stateTransition)
         index.transactionDirectories[rawID] = directoryName
@@ -606,7 +598,7 @@ public actor ChangeSetTransactionStore {
         let journalURL = transactionDirectory.appendingPathComponent("journal.wal")
         let entries = try readJournal(journalURL)
         let previousDigest = entries.last?.digest ?? String(repeating: "0", count: 64)
-        let sealedSnapshot = try seal(snapshot)
+        let sealedSnapshot = try encodeRecord(snapshot)
         let payload = JournalPayload(
             schema: "aishell.change-set-transaction-journal.v1", sequence: UInt64(entries.count),
             transactionID: snapshot.transactionID.rawValue, fromState: fromState, toState: snapshot.state,
@@ -630,7 +622,7 @@ public actor ChangeSetTransactionStore {
         guard !fileManager.fileExists(atPath: transactionDirectory.path) else { throw StoreError.orphan(directoryName) }
         try Self.createOwnerOnlyDirectory(transactionDirectory, fileManager: fileManager)
         let identity = Identity(schema: "aishell.change-set-transaction-identity.v1", transactionID: rawID, directoryName: directoryName)
-        try atomicWrite(try seal(identity), to: transactionDirectory.appendingPathComponent("identity.enc"))
+        try atomicWrite(try encodeRecord(identity), to: transactionDirectory.appendingPathComponent("identity.enc"))
         try writeTransition(snapshot, fromState: nil, directoryName: directoryName, kind: .legacyImport)
         index.transactionDirectories[rawID] = directoryName
         try saveIndex()
@@ -751,25 +743,20 @@ public actor ChangeSetTransactionStore {
         return entries
     }
 
-    private func saveIndex() throws { try atomicWrite(try seal(index), to: directory.appendingPathComponent("index.enc")) }
-    private func saveReceipts() throws { try atomicWrite(try seal(receipts), to: directory.appendingPathComponent("runtime-receipts.enc")) }
+    private func saveIndex() throws { try atomicWrite(try encodeRecord(index), to: directory.appendingPathComponent("index.enc")) }
+    private func saveReceipts() throws { try atomicWrite(try encodeRecord(receipts), to: directory.appendingPathComponent("runtime-receipts.enc")) }
 
-    private func seal<T: Encodable>(_ value: T) throws -> Data {
-        let plaintext = try Self.encode(value)
-        let box = try AES.GCM.seal(plaintext, using: key)
-        let envelope = Envelope(schema: "aishell.change-set-store.envelope.v1", nonce: Data(box.nonce), ciphertext: box.ciphertext, tag: box.tag)
-        return try Self.encode(envelope)
+    private func encodeRecord<T: Encodable>(_ value: T) throws -> Data {
+        try Self.encode(value)
     }
 
     private func open<T: Decodable>(_ type: T.Type, data: Data) throws -> T {
         do {
-            let envelope = try Self.decode(Envelope.self, from: data)
-            guard envelope.schema == "aishell.change-set-store.envelope.v1" else { throw StoreError.corrupt("unknown envelope schema") }
-            let nonce = try AES.GCM.Nonce(data: envelope.nonce)
-            let box = try AES.GCM.SealedBox(nonce: nonce, ciphertext: envelope.ciphertext, tag: envelope.tag)
-            return try Self.decode(T.self, from: AES.GCM.open(box, using: key))
+            let stored = try LegacyChangeSetEncryption.schema(data) == "aishell.change-set-store.envelope.v1"
+                ? LegacyChangeSetEncryption.decode(data, key: legacyKey, derived: true) : data
+            return try Self.decode(T.self, from: stored)
         } catch let error as StoreError { throw error }
-        catch { throw StoreError.corrupt("encrypted record authentication/decode failed") }
+        catch { throw StoreError.corrupt("保存された編集記録を読み取れません。") }
     }
 
     private func appendLine(_ data: Data, to url: URL) throws {

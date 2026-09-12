@@ -439,8 +439,6 @@ public actor SourceKitLSPService {
     }
 
     public func query(_ request: SourceKitLSPRequest) async throws -> SourceKitLSPResult {
-        let configuration = try await runtimeStore.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
         let resolver = await runtimeStore.pathResolver()
         let root = try resolver.resolveExisting(request.root.path)
         let documentURL = try resolver.resolveExisting(root.appendingPathComponent(request.path).path)

@@ -357,8 +357,8 @@ final class ChangeSetCutoverCoordinatorTests: XCTestCase {
         var generation = await fixture.registry.snapshot().generation
         _ = try await fixture.registry.rotateEpoch(
             controlRequestID: UUID().uuidString.lowercased(),
-            proofIDDigest: CutoverFixture.digest(70),
-            proofExpiresAt: Date(timeIntervalSince1970: 1_200),
+            requestDigest: CutoverFixture.digest(70),
+            expiresAt: Date(timeIntervalSince1970: 1_200),
             clientID: replay.clientID,
             expectedEpoch: replay.epoch,
             nextEpoch: replay.epoch + 1,
@@ -370,8 +370,8 @@ final class ChangeSetCutoverCoordinatorTests: XCTestCase {
         generation = await fixture.registry.snapshot().generation
         _ = try await fixture.registry.retire(
             controlRequestID: UUID().uuidString.lowercased(),
-            proofIDDigest: CutoverFixture.digest(71),
-            proofExpiresAt: Date(timeIntervalSince1970: 1_200),
+            requestDigest: CutoverFixture.digest(71),
+            expiresAt: Date(timeIntervalSince1970: 1_200),
             clientID: replay.clientID,
             expectedEpoch: replay.epoch + 1,
             expectedRegistryGeneration: generation
@@ -640,7 +640,6 @@ private struct CutoverFixture {
         let registry = try ChangeSetClientRegistry(
             directory: root.appendingPathComponent("registry", isDirectory: true),
             rootIdentityDigest: rootDigest,
-            hmacKey: key,
             now: { clock }
         )
         let pristine = await registry.snapshot()
@@ -708,7 +707,7 @@ private struct CutoverFixture {
         )
         let transactionStore = try ChangeSetTransactionStore(
             directory: root.appendingPathComponent("transaction-store", isDirectory: true),
-            encryptionKey: key
+            legacyKey: key
         )
         let source = ChangeSetCutoverLegacySnapshot(
             sourceDigest: digest(7),
@@ -737,7 +736,7 @@ private struct CutoverFixture {
     ) throws -> ChangeSetCutoverCoordinator {
         try ChangeSetCutoverCoordinator(
             directory: coordinatorDirectory,
-            encryptionKey: key,
+            legacyKey: key,
             registry: registry,
             transactionStore: transactionStore,
             compatibility: compatibility,

@@ -425,8 +425,6 @@ public actor ProjectProfileService {
         rootPath: String? = nil,
         observedCursor: String
     ) async throws -> ProjectProfileCatalogResult {
-        let configuration = try await runtimeStore.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
         let currentCursor = try Self.parseObservationCursor(observedCursor)
         let resolver = await runtimeStore.pathResolver()
         try loadCacheIfNeeded()

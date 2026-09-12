@@ -5,7 +5,7 @@ import XCTest
 @testable import AIShellCore
 
 final class LegacyControlCompatStoreTests: XCTestCase {
-    func testRecordPersistsExactReplayAndConsumesProofAcrossRestart() async throws {
+    func testRecordPersistsExactReplayAcrossRestart() async throws {
         let fixture = try Fixture()
         let store = try fixture.store()
         try await store.importLegacy(fixture.emptySnapshot())
@@ -13,7 +13,7 @@ final class LegacyControlCompatStoreTests: XCTestCase {
         let recorded = try await store.record(
             controlRequestID: fixture.requestID,
             requestDigest: fixture.requestDigest,
-            proofID: fixture.proofID,
+
             result: fixture.result,
             expiresAt: fixture.now.addingTimeInterval(60),
             now: fixture.now)
@@ -23,30 +23,18 @@ final class LegacyControlCompatStoreTests: XCTestCase {
         let replay = try await restarted.record(
             controlRequestID: fixture.requestID,
             requestDigest: fixture.requestDigest,
-            proofID: fixture.proofID,
+
             result: fixture.result,
             expiresAt: fixture.now.addingTimeInterval(120),
             now: fixture.now)
         XCTAssertEqual(replay, fixture.result)
-        let proofConsumedAfterRestart = await restarted.consumedOwnerProof(fixture.proofID)
-        XCTAssertTrue(proofConsumedAfterRestart)
 
         await XCTAssertCompatError(.requestConflict) {
             _ = try await restarted.record(
                 controlRequestID: fixture.requestID,
                 requestDigest: fixture.digest("different-request"),
-                proofID: "other-proof",
+
                 result: fixture.result,
-                expiresAt: fixture.now.addingTimeInterval(60),
-                now: fixture.now)
-        }
-        await XCTAssertCompatError(.proofConsumed) {
-            _ = try await restarted.record(
-                controlRequestID: "control-request-2",
-                requestDigest: fixture.digest("request-2"),
-                proofID: fixture.proofID,
-                result: ApplyChangeSetControlResult(
-                    controlRequestID: "control-request-2", client: nil, transactionResult: nil),
                 expiresAt: fixture.now.addingTimeInterval(60),
                 now: fixture.now)
         }
@@ -62,7 +50,7 @@ final class LegacyControlCompatStoreTests: XCTestCase {
             _ = try await crashing.record(
                 controlRequestID: fixture.requestID,
                 requestDigest: fixture.requestDigest,
-                proofID: fixture.proofID,
+
                 result: fixture.result,
                 expiresAt: fixture.now.addingTimeInterval(60),
                 now: fixture.now)
@@ -74,8 +62,6 @@ final class LegacyControlCompatStoreTests: XCTestCase {
             requestDigest: fixture.requestDigest,
             now: fixture.now)
         XCTAssertEqual(replay, .replay(fixture.result))
-        let proofConsumedAfterCrash = await restarted.consumedOwnerProof(fixture.proofID)
-        XCTAssertTrue(proofConsumedAfterCrash)
     }
 
     func testLegacyReceiptExactReplaySurvivesRestartAndDigestConflictFailsClosed() async throws {
@@ -95,11 +81,9 @@ final class LegacyControlCompatStoreTests: XCTestCase {
             _ = try await restarted.lookup(
                 controlRequestID: fixture.requestID, requestDigest: fixture.digest("different"), now: fixture.now)
         }
-        let proofConsumed = await restarted.consumedOwnerProof(fixture.proofID)
-        XCTAssertTrue(proofConsumed)
     }
 
-    func testImportIsBoundToAuthenticatedSourceDigestAndExactRetryOnly() async throws {
+    func testImportRequiresMatchingSourceAndExactRetry() async throws {
         let fixture = try Fixture()
         let store = try fixture.store()
         let snapshot = fixture.snapshot(expiresAt: fixture.now.addingTimeInterval(60))
@@ -107,21 +91,13 @@ final class LegacyControlCompatStoreTests: XCTestCase {
         try await store.importLegacy(snapshot)
 
         let changed = LegacyControlCompatSnapshot(
-            sourceDigest: fixture.digest("other-source"), receipts: snapshot.receipts,
-            consumedOwnerProofIDs: snapshot.consumedOwnerProofIDs)
+            sourceDigest: fixture.digest("other-source"), receipts: snapshot.receipts)
         await XCTAssertCompatError(.importConflict) { try await store.importLegacy(changed) }
 
-        let bank = fixture.bank("a")
-        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: bank)) as? [String: Any])
-        object["sourceDigest"] = fixture.digest("substituted-source")
-        try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]).write(to: bank)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: bank.path)
-        XCTAssertThrowsError(try fixture.store()) { error in
-            XCTAssertEqual((error as? LegacyControlCompatStoreError)?.code, .storeCorrupt)
-        }
+
     }
 
-    func testExpiryCleanupRemovesPayloadButNeverReleasesProofConsumption() async throws {
+    func testExpiryCleanupRemovesExpiredPayload() async throws {
         let fixture = try Fixture(receiptCapacity: 2)
         let store = try fixture.store()
         try await store.importLegacy(fixture.snapshot(expiresAt: fixture.now.addingTimeInterval(-1)))
@@ -134,17 +110,13 @@ final class LegacyControlCompatStoreTests: XCTestCase {
         let removed = try await store.cleanupExpired(now: fixture.now)
         let missing = try await store.lookup(
             controlRequestID: fixture.requestID, requestDigest: fixture.requestDigest, now: fixture.now)
-        let proofConsumed = await store.consumedOwnerProof(fixture.proofID)
         XCTAssertEqual(countBeforeCleanup, 0)
         XCTAssertEqual(capacityBeforeCleanup, 2)
         XCTAssertEqual(removed, 1)
         XCTAssertEqual(missing, .missing)
-        XCTAssertTrue(proofConsumed)
 
         let restarted = try fixture.store()
-        let restartedProofConsumed = await restarted.consumedOwnerProof(fixture.proofID)
         let restartedCount = await restarted.unexpiredReceiptCount(now: fixture.now)
-        XCTAssertTrue(restartedProofConsumed)
         XCTAssertEqual(restartedCount, 0)
     }
 
@@ -194,11 +166,9 @@ final class LegacyControlCompatStoreTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fixture.bank("b").path)
 
         let restarted = try fixture.store()
-        let proofConsumed = await restarted.consumedOwnerProof(fixture.proofID)
         let count = await restarted.unexpiredReceiptCount(now: fixture.now)
         let lookup = try await restarted.lookup(
             controlRequestID: fixture.requestID, requestDigest: fixture.requestDigest, now: fixture.now)
-        XCTAssertTrue(proofConsumed)
         XCTAssertEqual(count, 0)
         XCTAssertEqual(lookup, .expired)
     }
@@ -231,23 +201,7 @@ final class LegacyControlCompatStoreTests: XCTestCase {
         }
     }
 
-    func testAuthenticatedBanksRejectProofShrinkAndReceiptMutation() async throws {
-        let proofTarget = try Fixture()
-        let proofTargetStore = try proofTarget.store()
-        let proofSnapshot = proofTarget.snapshot(
-            expiresAt: proofTarget.now.addingTimeInterval(-1), proofIDs: [proofTarget.proofID, "proof-2"])
-        try await proofTargetStore.importLegacy(proofSnapshot)
-
-        let proofDonor = try Fixture(keyData: proofTarget.keyData, sourceDigest: proofTarget.sourceDigest)
-        let proofDonorStore = try proofDonor.store()
-        try await proofDonorStore.importLegacy(
-            proofDonor.snapshot(expiresAt: proofDonor.now.addingTimeInterval(-1), proofIDs: [proofDonor.proofID]))
-        _ = try await proofDonorStore.cleanupExpired(now: proofDonor.now)
-        try proofDonor.copyBank("b", to: proofTarget.bank("b"))
-        XCTAssertThrowsError(try proofTarget.store()) { error in
-            XCTAssertEqual((error as? LegacyControlCompatStoreError)?.code, .storeCorrupt)
-        }
-
+    func testBanksRejectReceiptMutation() async throws {
         let receiptTarget = try Fixture()
         let receiptTargetStore = try receiptTarget.store()
         try await receiptTargetStore.importLegacy(
@@ -389,15 +343,13 @@ private struct Fixture {
         LegacyControlCompatSnapshot(
             sourceDigest: sourceDigest,
             receipts: [requestID: LegacyControlCompatReceipt(
-                expiresAt: expiresAt, requestDigest: requestDigest, result: result)],
-            consumedOwnerProofIDs: proofIDs ?? [proofID])
+                expiresAt: expiresAt, requestDigest: requestDigest, result: result)])
     }
 
     func emptySnapshot() -> LegacyControlCompatSnapshot {
         LegacyControlCompatSnapshot(
             sourceDigest: sourceDigest,
-            receipts: [:],
-            consumedOwnerProofIDs: [])
+            receipts: [:])
     }
 
     func twoReceiptSnapshot(firstExpiry: Date, secondExpiry: Date) -> LegacyControlCompatSnapshot {
@@ -413,8 +365,7 @@ private struct Fixture {
                     expiresAt: firstExpiry, requestDigest: requestDigest, result: result),
                 secondID: LegacyControlCompatReceipt(
                     expiresAt: secondExpiry, requestDigest: digest("request-2"), result: secondResult)
-            ],
-            consumedOwnerProofIDs: [proofID, "proof-2"])
+            ])
     }
 
     func bank(_ name: String) -> URL {

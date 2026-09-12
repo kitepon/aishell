@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -138,6 +138,14 @@ try {
     })).structuredContent;
     assert.equal(applied.status, "committed");
     assert.equal(await readFile(path.join(work, "edited.txt"), "utf8"), content);
+    const stateParent = path.join(packedDirectory, "state", "apply-change-set-local-v1");
+    const roots = await readdir(stateParent);
+    assert.equal(roots.length, 1);
+    const stateRoot = path.join(stateParent, roots[0]);
+    await assert.rejects(access(path.join(stateRoot, "state-key")), { code: "ENOENT" });
+    const stored = JSON.parse(await readFile(path.join(stateRoot, "apply-change-set-state.enc.json"), "utf8"));
+    assert.equal(stored.schema, "aishell.apply-change-set-core-state.v1");
+    assert.equal(stored.ciphertext, undefined, "編集状態は鍵を作らずJSONで保存する");
     let status = (await call("run_check", {
       schema: "aishell.run-check.v2", cache: "off",
       dispatch: { mode: "start", client_run_key: "packed-bare-supervisor" },

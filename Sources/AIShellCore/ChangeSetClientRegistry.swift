@@ -79,7 +79,7 @@ public enum ChangeSetClientControlAction: String, Codable, Sendable {
 
 public struct ChangeSetClientControlReceipt: Codable, Equatable, Sendable {
     public let controlRequestID: String
-    public let proofIDDigest: String
+    public let requestDigest: String
     public let action: ChangeSetClientControlAction
     public let resultDigest: String
     public let registryGeneration: UInt64
@@ -91,7 +91,7 @@ public struct ChangeSetClientControlReceipt: Codable, Equatable, Sendable {
 
     public init(
         controlRequestID: String,
-        proofIDDigest: String,
+        requestDigest: String,
         action: ChangeSetClientControlAction,
         resultDigest: String,
         registryGeneration: UInt64,
@@ -102,7 +102,7 @@ public struct ChangeSetClientControlReceipt: Codable, Equatable, Sendable {
         expiresAt: Date
     ) {
         self.controlRequestID = controlRequestID
-        self.proofIDDigest = proofIDDigest
+        self.requestDigest = requestDigest
         self.action = action
         self.resultDigest = resultDigest
         self.registryGeneration = registryGeneration
@@ -112,6 +112,19 @@ public struct ChangeSetClientControlReceipt: Codable, Equatable, Sendable {
         self.currentEpoch = currentEpoch
         self.expiresAt = expiresAt
     }
+    enum CodingKeys: String, CodingKey {
+        case controlRequestID
+        case requestDigest = "proofIDDigest"
+        case action
+        case resultDigest
+        case registryGeneration
+        case clientID
+        case slotIndex
+        case slotGeneration
+        case currentEpoch
+        case expiresAt
+    }
+
 }
 
 public struct ChangeSetClientRegistrySnapshot: Equatable, Sendable {
@@ -214,8 +227,7 @@ public struct ChangeSetClientRegistryError: Error, Equatable, Sendable {
         case rotationBlocked = "CLIENT_ROTATION_BLOCKED"
         case retireBlocked = "CLIENT_RETIRE_BLOCKED"
         case reinitializeBlocked = "CLIENT_REGISTRY_REINITIALIZE_BLOCKED"
-        case ownerProofInvalid = "CLIENT_OWNER_PROOF_INVALID"
-        case ownerProofConsumed = "CLIENT_OWNER_PROOF_CONSUMED"
+        case controlRequestInvalid = "CONTROL_REQUEST_INVALID"
         case controlCapacityExceeded = "CLIENT_CONTROL_CAPACITY_EXCEEDED"
         case controlExpired = "CLIENT_CONTROL_EXPIRED"
         case controlRequestConflict = "CLIENT_CONTROL_REQUEST_CONFLICT"
@@ -246,7 +258,6 @@ public actor ChangeSetClientRegistry {
     private static let magic = Data("AISHELL-CSR-A/B\0".utf8)
 
     private let directory: URL
-    private let hmacKey: SymmetricKey
     private let now: @Sendable () -> Date
     private var image: RegistryImage
     private var activeBank: Bank
@@ -254,19 +265,17 @@ public actor ChangeSetClientRegistry {
     public init(
         directory: URL,
         rootIdentityDigest: String,
-        hmacKey: Data,
         now: @escaping @Sendable () -> Date = { Date() }
     ) throws {
-        guard hmacKey.count >= 32, Self.isSHA256(rootIdentityDigest) else {
-            throw ChangeSetClientRegistryError(.ownerProofInvalid, "registry HMAC key must be at least 256 bits")
+        guard Self.isSHA256(rootIdentityDigest) else {
+            throw ChangeSetClientRegistryError(.storeCorrupt, "対象フォルダの識別情報が不正です。")
         }
         self.directory = directory.standardizedFileURL
-        self.hmacKey = SymmetricKey(data: hmacKey)
         self.now = now
         try Self.prepareDirectory(self.directory)
 
-        let a = try Self.loadBank(.a, directory: self.directory, key: self.hmacKey)
-        let b = try Self.loadBank(.b, directory: self.directory, key: self.hmacKey)
+        let a = try Self.loadBank(.a, directory: self.directory)
+        let b = try Self.loadBank(.b, directory: self.directory)
         switch (a, b) {
         case let (.valid(left), .valid(right)):
             if left.generation >= right.generation {
@@ -288,8 +297,8 @@ public actor ChangeSetClientRegistry {
             }
             image = RegistryImage(schema: "aishell.change-set-client-registry.v1", rootIdentityDigest: rootIdentityDigest, generation: 0, slots: slots, receipts: Array(repeating: nil, count: Self.controlReceiptCapacity), legacyImportReceipt: nil)
             activeBank = .a
-            try Self.writeBank(image, bank: .a, directory: self.directory, key: self.hmacKey)
-            try Self.writeBank(image, bank: .b, directory: self.directory, key: self.hmacKey)
+            try Self.writeBank(image, bank: .a, directory: self.directory)
+            try Self.writeBank(image, bank: .b, directory: self.directory)
             try Self.writePointer(.a, generation: image.generation, directory: self.directory)
         default:
             throw ChangeSetClientRegistryError(.storeCorrupt, "both registry banks are invalid")
@@ -541,12 +550,12 @@ public actor ChangeSetClientRegistry {
 
     public func allocate(
         controlRequestID: String,
-        proofIDDigest: String,
-        proofExpiresAt: Date,
+        requestDigest: String,
+        expiresAt: Date,
         expectedRegistryGeneration: UInt64
     ) throws -> ChangeSetClientControlReceipt {
-        if let replay = try replayControl(controlRequestID, proofDigest: proofIDDigest, action: .allocate) { return replay }
-        try validateControl(controlRequestID: controlRequestID, proofIDDigest: proofIDDigest, proofExpiresAt: proofExpiresAt, expectedGeneration: expectedRegistryGeneration)
+        if let replay = try replayControl(controlRequestID, requestDigest: requestDigest, action: .allocate) { return replay }
+        try validateControl(controlRequestID: controlRequestID, requestDigest: requestDigest, expiresAt: expiresAt, expectedGeneration: expectedRegistryGeneration)
         guard let index = image.slots.firstIndex(where: { $0.allocationState == .free && $0.currentEpoch < Self.maximumEpoch }) else {
             throw ChangeSetClientRegistryError(.clientCapacityExceeded)
         }
@@ -557,7 +566,7 @@ public actor ChangeSetClientRegistry {
         next.slots[index].highWater = 0
         next.slots[index].replay = Array(repeating: nil, count: Self.replayCapacity)
         next.slots[index].slotGeneration += 1
-        let receipt = makeReceipt(requestID: controlRequestID, proofDigest: proofIDDigest, action: .allocate, next: next, slot: next.slots[index], expiry: proofExpiresAt)
+        let receipt = makeReceipt(requestID: controlRequestID, requestDigest: requestDigest, action: .allocate, next: next, slot: next.slots[index], expiry: expiresAt)
         try append(receipt, to: &next)
         try persist(next)
         return receipt
@@ -565,15 +574,15 @@ public actor ChangeSetClientRegistry {
 
     public func rotateEpoch(
         controlRequestID: String,
-        proofIDDigest: String,
-        proofExpiresAt: Date,
+        requestDigest: String,
+        expiresAt: Date,
         clientID: String,
         expectedEpoch: UInt64,
         nextEpoch: UInt64,
         expectedRegistryGeneration: UInt64
     ) throws -> ChangeSetClientControlReceipt {
-        if let replay = try replayControl(controlRequestID, proofDigest: proofIDDigest, action: .rotateEpoch) { return replay }
-        try validateControl(controlRequestID: controlRequestID, proofIDDigest: proofIDDigest, proofExpiresAt: proofExpiresAt, expectedGeneration: expectedRegistryGeneration)
+        if let replay = try replayControl(controlRequestID, requestDigest: requestDigest, action: .rotateEpoch) { return replay }
+        try validateControl(controlRequestID: controlRequestID, requestDigest: requestDigest, expiresAt: expiresAt, expectedGeneration: expectedRegistryGeneration)
         let index = try activeSlotIndex(clientID: clientID, epoch: expectedEpoch)
         guard nextEpoch == expectedEpoch + 1, nextEpoch <= Self.maximumEpoch else {
             throw ChangeSetClientRegistryError(.clientEpochExhausted)
@@ -587,7 +596,7 @@ public actor ChangeSetClientRegistry {
         next.slots[index].highWater = 0
         next.slots[index].replay = Array(repeating: nil, count: Self.replayCapacity)
         next.slots[index].slotGeneration += 1
-        let receipt = makeReceipt(requestID: controlRequestID, proofDigest: proofIDDigest, action: .rotateEpoch, next: next, slot: next.slots[index], expiry: proofExpiresAt)
+        let receipt = makeReceipt(requestID: controlRequestID, requestDigest: requestDigest, action: .rotateEpoch, next: next, slot: next.slots[index], expiry: expiresAt)
         try append(receipt, to: &next)
         try persist(next)
         return receipt
@@ -595,14 +604,14 @@ public actor ChangeSetClientRegistry {
 
     public func retire(
         controlRequestID: String,
-        proofIDDigest: String,
-        proofExpiresAt: Date,
+        requestDigest: String,
+        expiresAt: Date,
         clientID: String,
         expectedEpoch: UInt64,
         expectedRegistryGeneration: UInt64
     ) throws -> ChangeSetClientControlReceipt {
-        if let replay = try replayControl(controlRequestID, proofDigest: proofIDDigest, action: .retire) { return replay }
-        try validateControl(controlRequestID: controlRequestID, proofIDDigest: proofIDDigest, proofExpiresAt: proofExpiresAt, expectedGeneration: expectedRegistryGeneration)
+        if let replay = try replayControl(controlRequestID, requestDigest: requestDigest, action: .retire) { return replay }
+        try validateControl(controlRequestID: controlRequestID, requestDigest: requestDigest, expiresAt: expiresAt, expectedGeneration: expectedRegistryGeneration)
         let index = try activeSlotIndex(clientID: clientID, epoch: expectedEpoch)
         guard !image.slots[index].replay.compactMap({ $0 }).contains(where: { !$0.state.isTerminal }) else {
             throw ChangeSetClientRegistryError(.retireBlocked)
@@ -613,7 +622,7 @@ public actor ChangeSetClientRegistry {
         next.slots[index].highWater = 0
         next.slots[index].replay = Array(repeating: nil, count: Self.replayCapacity)
         next.slots[index].slotGeneration += 1
-        let receipt = makeReceipt(requestID: controlRequestID, proofDigest: proofIDDigest, action: .retire, next: next, slot: next.slots[index], expiry: proofExpiresAt)
+        let receipt = makeReceipt(requestID: controlRequestID, requestDigest: requestDigest, action: .retire, next: next, slot: next.slots[index], expiry: expiresAt)
         try append(receipt, to: &next)
         try persist(next)
         return receipt
@@ -621,12 +630,12 @@ public actor ChangeSetClientRegistry {
 
     public func reinitialize(
         controlRequestID: String,
-        proofIDDigest: String,
-        proofExpiresAt: Date,
+        requestDigest: String,
+        expiresAt: Date,
         expectedRegistryGeneration: UInt64
     ) throws -> ChangeSetClientControlReceipt {
-        if let replay = try replayControl(controlRequestID, proofDigest: proofIDDigest, action: .reinitializeRegistry) { return replay }
-        try validateControl(controlRequestID: controlRequestID, proofIDDigest: proofIDDigest, proofExpiresAt: proofExpiresAt, expectedGeneration: expectedRegistryGeneration)
+        if let replay = try replayControl(controlRequestID, requestDigest: requestDigest, action: .reinitializeRegistry) { return replay }
+        try validateControl(controlRequestID: controlRequestID, requestDigest: requestDigest, expiresAt: expiresAt, expectedGeneration: expectedRegistryGeneration)
         guard image.slots.allSatisfy({ $0.allocationState == .free }) else {
             throw ChangeSetClientRegistryError(.reinitializeBlocked)
         }
@@ -635,7 +644,7 @@ public actor ChangeSetClientRegistry {
         next.slots = (0..<Self.slotCount).map {
             ClientSlot(number: $0, clientID: UUID().uuidString.lowercased(), slotGeneration: 0, allocationState: .free, currentEpoch: 0, highWater: 0, replay: Array(repeating: nil, count: Self.replayCapacity))
         }
-        let receipt = makeReceipt(requestID: controlRequestID, proofDigest: proofIDDigest, action: .reinitializeRegistry, next: next, slot: nil, expiry: proofExpiresAt)
+        let receipt = makeReceipt(requestID: controlRequestID, requestDigest: requestDigest, action: .reinitializeRegistry, next: next, slot: nil, expiry: expiresAt)
         try append(receipt, to: &next)
         try persist(next)
         return receipt
@@ -668,26 +677,23 @@ public actor ChangeSetClientRegistry {
         guard expected == image.generation else { throw ChangeSetClientRegistryError(.generationChanged) }
     }
 
-    private func replayControl(_ requestID: String, proofDigest: String, action: ChangeSetClientControlAction) throws -> ChangeSetClientControlReceipt? {
+    private func replayControl(_ requestID: String, requestDigest: String, action: ChangeSetClientControlAction) throws -> ChangeSetClientControlReceipt? {
         guard let receipt = image.receipts.compactMap({ $0 }).first(where: { $0.controlRequestID == requestID }) else { return nil }
-        guard receipt.action == action, receipt.proofIDDigest == proofDigest else { throw ChangeSetClientRegistryError(.controlRequestConflict) }
+        guard receipt.action == action, receipt.requestDigest == requestDigest else { throw ChangeSetClientRegistryError(.controlRequestConflict) }
         guard receipt.expiresAt > now() else { throw ChangeSetClientRegistryError(.controlExpired) }
         return receipt
     }
 
-    private func validateControl(controlRequestID: String, proofIDDigest: String, proofExpiresAt: Date, expectedGeneration: UInt64) throws {
+    private func validateControl(controlRequestID: String, requestDigest: String, expiresAt: Date, expectedGeneration: UInt64) throws {
         try requireGeneration(expectedGeneration)
-        guard Self.isCanonicalUUID(controlRequestID), Self.isSHA256(proofIDDigest), proofExpiresAt > now(), proofExpiresAt.timeIntervalSince(now()) <= 300 else {
-            throw ChangeSetClientRegistryError(.ownerProofInvalid)
-        }
-        if image.receipts.compactMap({ $0 }).contains(where: { $0.proofIDDigest == proofIDDigest && $0.expiresAt > now() }) {
-            throw ChangeSetClientRegistryError(.ownerProofConsumed)
+        guard Self.isCanonicalUUID(controlRequestID), Self.isSHA256(requestDigest), expiresAt > now() else {
+            throw ChangeSetClientRegistryError(.controlRequestInvalid)
         }
     }
 
     private func makeReceipt(
         requestID: String,
-        proofDigest: String,
+        requestDigest: String,
         action: ChangeSetClientControlAction,
         next: RegistryImage,
         slot: ClientSlot?,
@@ -696,7 +702,7 @@ public actor ChangeSetClientRegistry {
         let result = "\(action.rawValue)\u{0}\(next.generation)\u{0}\(slot?.slotGeneration ?? 0)\u{0}\(slot?.currentEpoch ?? 0)"
         return ChangeSetClientControlReceipt(
             controlRequestID: requestID,
-            proofIDDigest: proofDigest,
+            requestDigest: requestDigest,
             action: action,
             resultDigest: Self.sha256(Data(result.utf8)),
             registryGeneration: next.generation,
@@ -719,7 +725,7 @@ public actor ChangeSetClientRegistry {
     private func persist(_ next: RegistryImage) throws {
         try Self.validate(next)
         let destination: Bank = activeBank == .a ? .b : .a
-        try Self.writeBank(next, bank: destination, directory: directory, key: hmacKey)
+        try Self.writeBank(next, bank: destination, directory: directory)
         try Self.writePointer(destination, generation: next.generation, directory: directory)
         image = next
         activeBank = destination
@@ -788,7 +794,7 @@ private extension ChangeSetClientRegistry {
             }
         }
         for receipt in image.receipts.compactMap({ $0 }) {
-            guard isCanonicalUUID(receipt.controlRequestID), isSHA256(receipt.proofIDDigest), isSHA256(receipt.resultDigest),
+            guard isCanonicalUUID(receipt.controlRequestID), isSHA256(receipt.requestDigest), isSHA256(receipt.resultDigest),
                   receipt.registryGeneration <= image.generation,
                   receipt.clientID.map(isCanonicalUUID) ?? true,
                   receipt.slotIndex.map({ (0..<slotCount).contains($0) }) ?? true,
@@ -843,7 +849,7 @@ private extension ChangeSetClientRegistry {
         guard chmod(directory.path, 0o700) == 0 else { throw ChangeSetClientRegistryError(.storeCorrupt, "registry directory chmod failed") }
     }
 
-    static func loadBank(_ bank: Bank, directory: URL, key: SymmetricKey) throws -> BankLoad {
+    static func loadBank(_ bank: Bank, directory: URL) throws -> BankLoad {
         let url = directory.appendingPathComponent("registry-\(bank.rawValue).bank")
         guard FileManager.default.fileExists(atPath: url.path) else { return .absent }
         var status = stat()
@@ -853,21 +859,16 @@ private extension ChangeSetClientRegistry {
         guard data.prefix(magic.count) == magic else { return .invalid }
         let generation = readUInt64(data, at: 24)
         let payloadLength = Int(readUInt64(data, at: 32))
-        let crc = readUInt32(data, at: 40)
         guard payloadLength >= 0, payloadLength <= bankByteCount - bankHeaderByteCount else { return .invalid }
         let digest = data.subdata(in: 48..<80)
-        let tag = data.subdata(in: 80..<112)
         let payload = data.subdata(in: bankHeaderByteCount..<(bankHeaderByteCount + payloadLength))
-        guard crc32(payload) == crc, Data(SHA256.hash(data: payload)) == digest else { return .invalid }
-        var authenticated = data.subdata(in: 0..<80)
-        authenticated.append(payload)
-        guard HMAC<SHA256>.isValidAuthenticationCode(tag, authenticating: authenticated, using: key) else { return .invalid }
+        guard Data(SHA256.hash(data: payload)) == digest else { return .invalid }
         guard let decoded = try? JSONDecoder().decode(RegistryImage.self, from: payload), decoded.generation == generation,
               (try? validate(decoded)) != nil else { return .invalid }
         return .valid(decoded)
     }
 
-    static func writeBank(_ image: RegistryImage, bank: Bank, directory: URL, key: SymmetricKey) throws {
+    static func writeBank(_ image: RegistryImage, bank: Bank, directory: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let payload = try encoder.encode(image)
@@ -878,13 +879,8 @@ private extension ChangeSetClientRegistry {
         bytes.replaceSubrange(0..<magic.count, with: magic)
         writeUInt64(image.generation, to: &bytes, at: 24)
         writeUInt64(UInt64(payload.count), to: &bytes, at: 32)
-        writeUInt32(crc32(payload), to: &bytes, at: 40)
         let digest = Data(SHA256.hash(data: payload))
         bytes.replaceSubrange(48..<80, with: digest)
-        var authenticated = bytes.subdata(in: 0..<80)
-        authenticated.append(payload)
-        let tag = Data(HMAC<SHA256>.authenticationCode(for: authenticated, using: key))
-        bytes.replaceSubrange(80..<112, with: tag)
         bytes.replaceSubrange(bankHeaderByteCount..<(bankHeaderByteCount + payload.count), with: payload)
         try durableWrite(bytes, to: directory.appendingPathComponent("registry-\(bank.rawValue).bank"))
     }
@@ -936,30 +932,13 @@ private extension ChangeSetClientRegistry {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    static func crc32(_ data: Data) -> UInt32 {
-        var crc: UInt32 = 0xffff_ffff
-        for byte in data {
-            crc ^= UInt32(byte)
-            for _ in 0..<8 { crc = (crc >> 1) ^ (0xedb8_8320 & (0 &- (crc & 1))) }
-        }
-        return ~crc
-    }
-
     static func writeUInt64(_ value: UInt64, to data: inout Data, at offset: Int) {
         var bigEndian = value.bigEndian
         withUnsafeBytes(of: &bigEndian) { data.replaceSubrange(offset..<(offset + 8), with: $0) }
-    }
-
-    static func writeUInt32(_ value: UInt32, to data: inout Data, at offset: Int) {
-        var bigEndian = value.bigEndian
-        withUnsafeBytes(of: &bigEndian) { data.replaceSubrange(offset..<(offset + 4), with: $0) }
     }
 
     static func readUInt64(_ data: Data, at offset: Int) -> UInt64 {
         data.subdata(in: offset..<(offset + 8)).reduce(0) { ($0 << 8) | UInt64($1) }
     }
 
-    static func readUInt32(_ data: Data, at offset: Int) -> UInt32 {
-        data.subdata(in: offset..<(offset + 4)).reduce(0) { ($0 << 8) | UInt32($1) }
-    }
 }

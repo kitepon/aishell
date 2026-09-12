@@ -1005,8 +1005,6 @@ final class MCPServer: Sendable {
     }
 
     private func changeSetService(rootPath: String) async throws -> ApplyChangeSetService {
-        let configuration = try await store.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
         let resolver = await store.pathResolver()
         let root = URL(fileURLWithPath: rootPath, isDirectory: true)
             .standardizedFileURL.resolvingSymlinksInPath()
@@ -1168,7 +1166,6 @@ final class MCPServer: Sendable {
             case .changeSetSequenceConflict: code = "CHANGE_SET_SEQUENCE_CONFLICT"
             case .changeSetPreviousPending: code = "CHANGE_SET_PREVIOUS_PENDING"
             case .changeSetClientCapacityExceeded: code = "CHANGE_SET_CLIENT_CAPACITY_EXCEEDED"
-            case .clientOwnerProofInvalid: code = "CLIENT_OWNER_PROOF_INVALID"
             case .clientRotationBlocked: code = "CLIENT_ROTATION_BLOCKED"
             case .clientRetireBlocked: code = "CLIENT_RETIRE_BLOCKED"
             case .clientRegistryReinitializeBlocked: code = "CLIENT_REGISTRY_REINITIALIZE_BLOCKED"

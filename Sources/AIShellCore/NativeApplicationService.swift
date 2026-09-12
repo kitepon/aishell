@@ -10,7 +10,7 @@ public final class NativeApplicationService {
     }
 
     public func listRunningApplications() async throws -> [RunningApplicationInfo] {
-        try await ensureActive()
+
         return NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .map {
@@ -25,7 +25,7 @@ public final class NativeApplicationService {
     }
 
     public func listInstalledApplications() async throws -> [InstalledApplicationInfo] {
-        try await ensureActive()
+
         return discoverInstalledApplications()
     }
 
@@ -65,7 +65,7 @@ public final class NativeApplicationService {
 
     public func openApplication(bundleIdentifier: String) async throws -> RunningApplicationInfo {
         try await audited(operation: "apps.open", target: bundleIdentifier) {
-            try await ensureActive()
+
             guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
                 throw AIShellError.applicationNotFound(bundleIdentifier)
             }
@@ -87,7 +87,7 @@ public final class NativeApplicationService {
 
     public func activateApplication(bundleIdentifier: String) async throws -> RunningApplicationInfo {
         try await audited(operation: "apps.activate", target: bundleIdentifier) {
-            try await ensureActive()
+
             guard let application = NSRunningApplication
                 .runningApplications(withBundleIdentifier: bundleIdentifier)
                 .first else {
@@ -107,10 +107,6 @@ public final class NativeApplicationService {
         }
     }
 
-    private func ensureActive() async throws {
-        let configuration = try await store.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
-    }
 
     private func audited<T: Sendable>(
         operation: String,

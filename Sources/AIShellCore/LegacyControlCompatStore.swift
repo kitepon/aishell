@@ -17,16 +17,13 @@ public struct LegacyControlCompatReceipt: Codable, Equatable, Sendable {
 public struct LegacyControlCompatSnapshot: Codable, Equatable, Sendable {
     public let sourceDigest: String
     public let receipts: [String: LegacyControlCompatReceipt]
-    public let consumedOwnerProofIDs: Set<String>
 
     public init(
         sourceDigest: String,
-        receipts: [String: LegacyControlCompatReceipt],
-        consumedOwnerProofIDs: Set<String>
+        receipts: [String: LegacyControlCompatReceipt]
     ) {
         self.sourceDigest = sourceDigest
         self.receipts = receipts
-        self.consumedOwnerProofIDs = consumedOwnerProofIDs
     }
 }
 
@@ -42,7 +39,6 @@ public struct LegacyControlCompatStoreError: Error, Equatable, Sendable {
         case secretStoreUnavailable = "CHANGE_SET_SECRET_STORE_UNAVAILABLE"
         case importConflict = "LEGACY_CONTROL_COMPAT_IMPORT_CONFLICT"
         case requestConflict = "CLIENT_CONTROL_REQUEST_CONFLICT"
-        case proofConsumed = "CLIENT_OWNER_PROOF_INVALID"
         case capacityExceeded = "CLIENT_CONTROL_CAPACITY_EXCEEDED"
     }
 
@@ -73,8 +69,6 @@ public actor LegacyControlCompatStore {
         let sourceDigest: String
         var generation: UInt64
         var receipts: [String: LegacyControlCompatReceipt]
-        /// proof IDはreceipt expiryやpayload cleanupと独立したgrow-only setである。
-        var consumedOwnerProofIDs: Set<String>
     }
 
     private struct Envelope: Codable, Sendable {
@@ -104,7 +98,7 @@ public actor LegacyControlCompatStore {
     }
 
     private let directory: URL
-    private let key: SymmetricKey
+    private let legacyKey: Data?
     private let receiptCapacity: Int
     private let failurePoint: FailurePoint?
     private var image: Image?
@@ -115,28 +109,28 @@ public actor LegacyControlCompatStore {
         stateDirectory: URL,
         receiptCapacity: Int = LegacyControlCompatStore.defaultReceiptCapacity
     ) throws {
-        let keyData = try Self.loadOrCreateRootKey(stateDirectory: stateDirectory)
+        let keyData = try LegacyChangeSetEncryption.key(in: stateDirectory)
         try self.init(directory: directory, keyData: keyData, receiptCapacity: receiptCapacity)
     }
 
     init(
         directory: URL,
-        keyData: Data,
+        keyData: Data? = nil,
         receiptCapacity: Int = LegacyControlCompatStore.defaultReceiptCapacity,
         failurePoint: FailurePoint? = nil,
         loadHook: (@Sendable (URL) throws -> Void)? = nil
     ) throws {
-        guard keyData.count == 32, receiptCapacity > 0 else {
+        guard receiptCapacity > 0 else {
             throw LegacyControlCompatStoreError(.secretStoreUnavailable)
         }
         self.directory = directory
-        self.key = SymmetricKey(data: keyData)
+        self.legacyKey = keyData
         self.receiptCapacity = receiptCapacity
         self.failurePoint = failurePoint
         try Self.prepareDirectory(directory)
 
-        let a = try Self.load(.a, directory: directory, key: self.key, afterOpen: loadHook)
-        let b = try Self.load(.b, directory: directory, key: self.key, afterOpen: loadHook)
+        let a = try Self.load(.a, directory: directory, key: self.legacyKey, afterOpen: loadHook)
+        let b = try Self.load(.b, directory: directory, key: self.legacyKey, afterOpen: loadHook)
         switch (a, b) {
         case (.absent, .absent):
             image = nil
@@ -147,10 +141,10 @@ public actor LegacyControlCompatStore {
                 return nil
             }
             if valid.count == 2 {
-                try Self.validateAuthenticatedPair(valid[0].1, valid[1].1)
+                try Self.validatePair(valid[0].1, valid[1].1)
             }
             guard let newest = valid.max(by: { $0.1.generation < $1.1.generation }) else {
-                throw LegacyControlCompatStoreError(.storeCorrupt, "no authenticated compatibility bank")
+                throw LegacyControlCompatStoreError(.storeCorrupt, "no compatibility bank")
             }
             image = newest.1
             activeBank = newest.0
@@ -164,13 +158,11 @@ public actor LegacyControlCompatStore {
             schema: "aishell.change-set-legacy-control-compat.v1",
             sourceDigest: snapshot.sourceDigest,
             generation: 1,
-            receipts: snapshot.receipts,
-            consumedOwnerProofIDs: snapshot.consumedOwnerProofIDs
+            receipts: snapshot.receipts
         )
         if let image {
             guard image.sourceDigest == candidate.sourceDigest,
-                  image.receipts == candidate.receipts,
-                  image.consumedOwnerProofIDs == candidate.consumedOwnerProofIDs else {
+                  image.receipts == candidate.receipts else {
                 throw LegacyControlCompatStoreError(.importConflict)
             }
             return
@@ -193,10 +185,6 @@ public actor LegacyControlCompatStore {
         return .replay(receipt.result)
     }
 
-    public func consumedOwnerProof(_ proofID: String) -> Bool {
-        image?.consumedOwnerProofIDs.contains(proofID) == true
-    }
-
     public func unexpiredReceiptCount(now: Date) -> Int {
         image?.receipts.values.lazy.filter { $0.expiresAt > now }.count ?? 0
     }
@@ -212,13 +200,11 @@ public actor LegacyControlCompatStore {
         }
     }
 
-    /// cutover後にcompat surfaceが所有するcontrol（現在はowner abort）を、receiptとproof消費を
-    /// 一つのA/B generationへ原子的に保存する。同じrequestの再試行だけをexact replayする。
+    /// 編集取消しの結果を保存し、同じ依頼の再試行へ同じ結果を返す。
     @discardableResult
     public func record(
         controlRequestID: String,
         requestDigest: String,
-        proofID: String,
         result: ApplyChangeSetControlResult,
         expiresAt: Date,
         now: Date
@@ -235,9 +221,6 @@ public actor LegacyControlCompatStore {
             }
             return existing.result
         }
-        guard !next.consumedOwnerProofIDs.contains(proofID) else {
-            throw LegacyControlCompatStoreError(.proofConsumed)
-        }
         next.receipts = next.receipts.filter { $0.value.expiresAt > now }
         guard next.receipts.count < receiptCapacity else {
             throw LegacyControlCompatStoreError(.capacityExceeded)
@@ -247,7 +230,6 @@ public actor LegacyControlCompatStore {
             requestDigest: requestDigest,
             result: result
         )
-        next.consumedOwnerProofIDs.insert(proofID)
         guard next.generation < UInt64.max else {
             throw LegacyControlCompatStoreError(.storeCorrupt, "compatibility generation exhausted")
         }
@@ -256,7 +238,7 @@ public actor LegacyControlCompatStore {
         return result
     }
 
-    /// 期限切れpayloadだけを削除する。proof消費集合は一切縮めない。
+    /// 期限切れの結果記録を削除する。
     @discardableResult
     public func cleanupExpired(now: Date) throws -> Int {
         guard var next = image else { return 0 }
@@ -273,7 +255,7 @@ public actor LegacyControlCompatStore {
         let target = activeBank?.other ?? .a
         let destination = Self.bankURL(target, in: directory)
         let temporary = directory.appendingPathComponent(".compat-\(target.rawValue).\(UUID().uuidString).tmp")
-        let data = try Self.seal(next, key: key)
+        let data = try Self.sortedEncoder.encode(next)
         try Self.durableWrite(data, to: temporary)
         if failurePoint == .beforeRename {
             throw LegacyControlCompatStoreError(.storeCorrupt, "simulated crash before compatibility bank rename")
@@ -290,24 +272,10 @@ public actor LegacyControlCompatStore {
         }
     }
 
-    private static func seal(_ image: Image, key: SymmetricKey) throws -> Data {
-        let binding = AuthenticatedBinding(
-            schema: "aishell.change-set-legacy-control-compat-envelope.v1",
-            sourceDigest: image.sourceDigest,
-            generation: image.generation
-        )
-        let plaintext = try sortedEncoder.encode(image)
-        let box = try AES.GCM.seal(plaintext, using: key, authenticating: try sortedEncoder.encode(binding))
-        return try sortedEncoder.encode(Envelope(
-            schema: binding.schema, sourceDigest: binding.sourceDigest, generation: binding.generation,
-            nonce: Data(box.nonce), ciphertext: box.ciphertext, tag: box.tag
-        ))
-    }
-
     private static func load(
         _ bank: Bank,
         directory: URL,
-        key: SymmetricKey,
+        key: Data?,
         afterOpen: (@Sendable (URL) throws -> Void)?
     ) throws -> BankLoad {
         let url = bankURL(bank, in: directory)
@@ -325,20 +293,20 @@ public actor LegacyControlCompatStore {
               let data = try? readExact(descriptor, byteCount: Int(status.st_size)) else { return .invalid }
         guard close(descriptor) == 0 else { return .invalid }
         mustClose = false
-        guard let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
-              envelope.schema == "aishell.change-set-legacy-control-compat-envelope.v1",
-              isSHA256(envelope.sourceDigest), envelope.generation > 0 else { return .invalid }
         do {
-            let binding = AuthenticatedBinding(
-                schema: envelope.schema, sourceDigest: envelope.sourceDigest, generation: envelope.generation)
-            let box = try AES.GCM.SealedBox(
-                nonce: .init(data: envelope.nonce), ciphertext: envelope.ciphertext, tag: envelope.tag)
-            let plaintext = try AES.GCM.open(
-                box, using: key, authenticating: try sortedEncoder.encode(binding))
+            let plaintext: Data
+            if try LegacyChangeSetEncryption.schema(data) == "aishell.change-set-legacy-control-compat-envelope.v1" {
+                let envelope = try JSONDecoder().decode(Envelope.self, from: data)
+                let binding = AuthenticatedBinding(schema: envelope.schema,
+                    sourceDigest: envelope.sourceDigest, generation: envelope.generation)
+                plaintext = try LegacyChangeSetEncryption.decode(data, key: key,
+                    aad: try sortedEncoder.encode(binding))
+            } else {
+                plaintext = data
+            }
             let image = try JSONDecoder().decode(Image.self, from: plaintext)
             guard image.schema == "aishell.change-set-legacy-control-compat.v1",
-                  image.sourceDigest == envelope.sourceDigest,
-                  image.generation == envelope.generation else { return .invalid }
+                  isSHA256(image.sourceDigest), image.generation > 0 else { return .invalid }
             return .valid(image)
         } catch {
             return .invalid
@@ -379,14 +347,13 @@ public actor LegacyControlCompatStore {
               snapshot.receipts.allSatisfy({ id, receipt in
                   !id.isEmpty && id.utf8.count <= 128 && isSHA256(receipt.requestDigest)
                       && receipt.result.controlRequestID == id
-              }),
-              snapshot.consumedOwnerProofIDs.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 128 }) else {
+              }) else {
             throw LegacyControlCompatStoreError(.storeCorrupt, "invalid legacy compatibility snapshot")
         }
     }
 
-    /// 認証済みbank同士も、単一のcleanup又はcontrol追加として接続できなければforkである。
-    private static func validateAuthenticatedPair(_ lhs: Image, _ rhs: Image) throws {
+    /// 保存されたbank同士も、単一のcleanup又はcontrol追加として接続できなければforkである。
+    private static func validatePair(_ lhs: Image, _ rhs: Image) throws {
         if lhs.generation == rhs.generation {
             guard lhs == rhs else {
                 throw LegacyControlCompatStoreError(.storeCorrupt, "compatibility bank generation fork")
@@ -402,16 +369,13 @@ public actor LegacyControlCompatStore {
             return previous == receipt
         }
         let addedReceiptCount = high.receipts.keys.filter { low.receipts[$0] == nil }.count
-        let proofGrowth = high.consumedOwnerProofIDs.subtracting(low.consumedOwnerProofIDs)
-        let cleanupTransition = high.consumedOwnerProofIDs == low.consumedOwnerProofIDs
-            && addedReceiptCount == 0
+        let cleanupTransition = addedReceiptCount == 0
             && high.receipts.allSatisfy({ id, receipt in low.receipts[id] == receipt })
-        let recordTransition = high.consumedOwnerProofIDs.isSuperset(of: low.consumedOwnerProofIDs)
-            && proofGrowth.count == 1 && addedReceiptCount == 1 && commonReceiptsAreStable
+        let recordTransition = addedReceiptCount == 1 && commonReceiptsAreStable
         guard low.generation < UInt64.max, high.generation == low.generation + 1,
               high.sourceDigest == low.sourceDigest,
               cleanupTransition || recordTransition else {
-            throw LegacyControlCompatStoreError(.storeCorrupt, "authenticated compatibility bank fork")
+            throw LegacyControlCompatStoreError(.storeCorrupt, "compatibility bank fork")
         }
     }
 
@@ -465,12 +429,6 @@ public actor LegacyControlCompatStore {
         guard fsync(descriptor) == 0 else {
             throw LegacyControlCompatStoreError(.storeCorrupt, "compatibility directory fsync failed")
         }
-    }
-
-    private static func loadOrCreateRootKey(stateDirectory: URL) throws -> Data {
-        try LocalChangeSetKey.loadOrCreate(in: stateDirectory,
-            encryptedStateExists: FileManager.default.fileExists(atPath:
-                stateDirectory.appendingPathComponent("apply-change-set-state.enc.json").path))
     }
 
     private static func bankURL(_ bank: Bank, in directory: URL) -> URL {

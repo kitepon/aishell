@@ -269,7 +269,7 @@ public struct ApplyChangeSetError: Error, Codable, Equatable, Sendable {
         case transactionVolumeMismatch, unsupportedChangeTarget, changeSetConflict, transactionCapabilityUnavailable
         case reservedNamespaceConflict, externalConflictDuringCommit, changeSetStoreCorrupt, changeSetRecoveryRequired
         case changeSetLimitExceeded, changeSetClientNotRegistered, changeSetExpired, changeSetClientEpochAhead
-        case changeSetSequenceGap, changeSetSequenceConflict, changeSetClientCapacityExceeded, clientOwnerProofInvalid
+        case changeSetSequenceGap, changeSetSequenceConflict, changeSetClientCapacityExceeded
         case clientRotationBlocked, clientRetireBlocked, clientRegistryReinitializeBlocked, clientControlCapacityExceeded
         case changeSetReservationCorrupt, changeSetSecretStoreUnavailable, clientEpochChanged, clientControlExpired
         case changeSetPreviousPending, clientEpochExhausted
@@ -374,10 +374,8 @@ public enum ApplyChangeSetStoreCorruption: String, CaseIterable, Sendable { case
 public enum ApplyChangeSetCheckpointCorruption: String, CaseIterable, Sendable { case transactionMismatch, digestMismatch, cursorMismatch }
 public enum ApplyChangeSetTrashRecoveryAmbiguity: String, CaseIterable, Sendable { case missingReceipt, multipleCandidates, identityMismatch }
 public enum ApplyChangeSetEvidenceFailure: String, CaseIterable, Sendable { case quota, write, fsync }
-public enum ApplyChangeSetOwnerProofTamper: String, CaseIterable, Sendable { case expired, wrongRoot, wrongAction, wrongRequest, modifiedSignature }
 public enum ApplyChangeSetControlRace: String, CaseIterable, Sendable { case allocateAllocate, rotateApply, retireApply }
-public enum ApplyChangeSetReservationTamper: String, CaseIterable, Sendable { case ciphertext, tag, binding, length, digest }
-public enum ApplyChangeSetSecretFailure: String, CaseIterable, Sendable { case unavailable, missingKey, nonceReuse }
+public enum ApplyChangeSetReservationTamper: String, CaseIterable, Sendable { case binding, length, digest }
 public enum ApplyChangeSetPostAdmissionMutation: String, CaseIterable, Sendable { case cursorAdvanced, parentReplaced, capabilityRevoked, expectedContentChanged }
 public enum ApplyChangeSetMutationBoundary: String, CaseIterable, Sendable { case beforeFirstTargetReceipt, afterFirstTargetReceipt, afterCommitDecided }
 public enum ApplyChangeSetOrphanCase: String, CaseIterable, Sendable {
@@ -542,16 +540,6 @@ private struct ChangeSetLegacyStoreExport: Sendable {
     let transactions: [ChangeSetTransactionStore.Snapshot]
     let runtimeReceipts: [ChangeSetTransactionStore.RuntimeReceipt]
     let controlReceipts: [String: DurableControlReceipt]
-    let consumedOwnerProofIDs: Set<String>
-}
-
-private struct ApplyChangeSetOwnerProofPayload: Codable, Sendable {
-    let schema: String
-    let proofID: String
-    let rootPath: String
-    let controlRequestID: String
-    let actionDigest: String
-    let expiresAt: Date
 }
 
 private struct DurableChangeSetSnapshot: Codable, Sendable {
@@ -569,7 +557,6 @@ private struct DurableChangeSetSnapshot: Codable, Sendable {
     let runtimeEvents: [ApplyChangeSetDeltaEvent]
     let runtimeCommitted: Set<String>
     let controlReceipts: [String: DurableControlReceipt]
-    let consumedOwnerProofIDs: Set<String>
     let legacyExpired: Bool
     let legacyReused: Bool
 }
@@ -593,13 +580,7 @@ private enum LoadedChangeSetSnapshot {
     case core(DurableChangeSetCoreSnapshot)
 }
 
-private struct EncryptedStateEnvelope: Codable, Sendable {
-    let schema: String
-    let nonce: String
-    let ciphertext: String
-    let tag: String
-}
-private struct EncryptedReservationRecord: Codable, Sendable {
+private struct StoredReservationRecord: Codable, Sendable {
     let schema: String
     let reservationID: String
     let requestDigest: String
@@ -609,9 +590,10 @@ private struct EncryptedReservationRecord: Codable, Sendable {
     let requestSequence: Int
     let plaintextLength: Int
     let quotaBytes: Int
-    let nonce: String
-    let ciphertext: String
-    let tag: String
+    let nonce: String?
+    let ciphertext: String?
+    let tag: String?
+    let request: ApplyChangeSetRequest?
 }
 private struct ReservationAAD: Codable, Sendable {
     let schema: String
@@ -662,7 +644,7 @@ private actor ApplyChangeSetState {
     nonisolated let stateDirectory: URL
     nonisolated let root: URL
     nonisolated let generation: String
-    nonisolated let encryptionKey: SymmetricKey
+    nonisolated let legacyKey: Data?
     nonisolated let snapshotURL: URL
     var head: UInt64 = 0
     var capabilities: Set<ApplyChangeSetCapability>
@@ -672,13 +654,11 @@ private actor ApplyChangeSetState {
     var tamperedReservations: Set<String> = []
     var orphanPins: [String: Bool] = [:]
     var evidenceFailure: ApplyChangeSetEvidenceFailure?
-    var secretFailure: ApplyChangeSetSecretFailure?
     var targetMutationReceipts = 0
     var runtimeEvents: [ApplyChangeSetDeltaEvent] = []
     var runtimeCommitted: Set<String> = []
     var fullRescans = 0
     var controlReceipts: [String: DurableControlReceipt] = [:]
-    var consumedOwnerProofIDs: Set<String> = []
     var recoveryActive = false
     var persistenceFailure: ApplyChangeSetError?
     var legacyExpired = false
@@ -689,11 +669,11 @@ private actor ApplyChangeSetState {
     private var persistenceRevision: UInt64 = 0
     private var pendingJournalRepairs: [PendingJournalRepair] = []
 
-    init(base: URL, stateDirectory: URL, root: URL, disabled: Set<ApplyChangeSetCapability>, encryptionKey: SymmetricKey, legacyStateDirectory: URL? = nil) throws {
-        self.base = base; self.stateDirectory = stateDirectory; self.root = root; self.encryptionKey = encryptionKey
+    init(base: URL, stateDirectory: URL, root: URL, disabled: Set<ApplyChangeSetCapability>, legacyKey: Data?, legacyStateDirectory: URL? = nil) throws {
+        self.base = base; self.stateDirectory = stateDirectory; self.root = root; self.legacyKey = legacyKey
         snapshotURL = stateDirectory.appendingPathComponent("apply-change-set-state.enc.json")
         if FileManager.default.fileExists(atPath: snapshotURL.path) {
-            switch try Self.loadSnapshot(at: snapshotURL, key: encryptionKey) {
+            switch try Self.loadSnapshot(at: snapshotURL, key: legacyKey) {
             case let .legacy(snapshot):
                 guard snapshot.rootPath == root.standardizedFileURL.resolvingSymlinksInPath().path else {
                     throw ApplyChangeSetError(.changeSetStoreCorrupt, "state root binding mismatch")
@@ -702,7 +682,6 @@ private actor ApplyChangeSetState {
                 transactions = snapshot.transactions; reservations = snapshot.reservations; tamperedReservations = snapshot.tamperedReservations
                 orphanPins = snapshot.orphanPins; targetMutationReceipts = snapshot.targetMutationReceipts
                 runtimeEvents = snapshot.runtimeEvents; runtimeCommitted = snapshot.runtimeCommitted; controlReceipts = snapshot.controlReceipts
-                consumedOwnerProofIDs = snapshot.consumedOwnerProofIDs
                 legacyExpired = snapshot.legacyExpired; legacyReused = snapshot.legacyReused
                 let reconciliation = try Self.reconcileTransactionJournals(transactions, stateDirectory: stateDirectory)
                 transactions = reconciliation.transactions
@@ -728,7 +707,7 @@ private actor ApplyChangeSetState {
                 for url in try FileManager.default.contentsOfDirectory(at: reservationDirectory, includingPropertiesForKeys: nil) {
                     let id = url.deletingPathExtension().lastPathComponent
                     if url.pathExtension == "enc" || url.lastPathComponent.hasSuffix(".enc.json") {
-                        let record = try JSONDecoder().decode(EncryptedReservationRecord.self, from: Data(contentsOf: url))
+                        let record = try JSONDecoder().decode(StoredReservationRecord.self, from: Data(contentsOf: url))
                         guard record.reservationID == id || url.lastPathComponent == "\(record.reservationID).enc.json" else { throw ApplyChangeSetError(.changeSetStoreCorrupt, "orphan reservation filename mismatch") }
                         if !referenced.contains(record.reservationID) {
                             let binding = StoredReservationBinding(id: record.reservationID, requestDigest: record.requestDigest, clientID: record.clientID, clientEpoch: record.clientEpoch, requestSequence: record.requestSequence)
@@ -782,7 +761,7 @@ private actor ApplyChangeSetState {
         let reservationID = transactions.values.first(where: { $0.reservationID != nil && FileManager.default.fileExists(atPath: reservationURL($0.reservationID!).path) })?.reservationID
             ?? reservations.values.first?.id
         guard let reservationID else { return nil }
-        let record = try JSONDecoder().decode(EncryptedReservationRecord.self, from: Data(contentsOf: reservationURL(reservationID)))
+        let record = try JSONDecoder().decode(StoredReservationRecord.self, from: Data(contentsOf: reservationURL(reservationID)))
         let directory = stateDirectory.appendingPathComponent("reservations", isDirectory: true)
         return (try ChangeSetQuotaLedger(ledgerDirectory: directory, reservationID: reservationID), record.requestDigest, reservationID)
     }
@@ -836,20 +815,12 @@ private actor ApplyChangeSetState {
     }
     private static func stableUUID(slot: Int) -> String { String(format: "a15e1100-0000-4000-8000-%012d", slot + 1) }
 
-    fileprivate static func validateSnapshotKey(at url: URL, key: SymmetricKey) throws {
-        _ = try loadSnapshot(at: url, key: key)
-    }
-
-    private static func loadSnapshot(at url: URL, key: SymmetricKey) throws -> LoadedChangeSetSnapshot {
+    private static func loadSnapshot(at url: URL, key: Data?) throws -> LoadedChangeSetSnapshot {
         do {
-            let envelope = try JSONDecoder().decode(EncryptedStateEnvelope.self, from: Data(contentsOf: url))
-            guard envelope.schema == "aishell.apply-change-set-state-envelope.v1",
-                  let nonceData = Data(base64Encoded: envelope.nonce),
-                  let ciphertext = Data(base64Encoded: envelope.ciphertext),
-                  let tag = Data(base64Encoded: envelope.tag) else { throw ApplyChangeSetError(.changeSetStoreCorrupt) }
-            let nonce = try AES.GCM.Nonce(data: nonceData)
-            let box = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ciphertext, tag: tag)
-            let plaintext = try AES.GCM.open(box, using: key, authenticating: Data("aishell.apply-change-set-state-envelope.v1".utf8))
+            let data = try Data(contentsOf: url)
+            let plaintext = try LegacyChangeSetEncryption.schema(data) == "aishell.apply-change-set-state-envelope.v1"
+                ? LegacyChangeSetEncryption.decode(data, key: key,
+                    aad: Data("aishell.apply-change-set-state-envelope.v1".utf8)) : data
             let object = try JSONSerialization.jsonObject(with: plaintext) as? [String: Any]
             switch object?["schema"] as? String {
             case "aishell.apply-change-set-state.v1":
@@ -1037,7 +1008,7 @@ private actor ApplyChangeSetState {
 
     private static func reservationDigest(_ reservationID: String, stateDirectory: URL) throws -> String {
         let url = stateDirectory.appendingPathComponent("reservations/\(reservationID).enc.json")
-        return try JSONDecoder().decode(EncryptedReservationRecord.self, from: Data(contentsOf: url)).requestDigest
+        return try JSONDecoder().decode(StoredReservationRecord.self, from: Data(contentsOf: url)).requestDigest
     }
 
     private static func makeRecoveredJournalEntry(
@@ -1088,7 +1059,7 @@ private actor ApplyChangeSetState {
     }
 
     /// admission 後の全 materialization 分岐を、現在の durable state の shadow copy 上で encode する。
-    /// production の snapshot/WAL payload 型と暗号化 envelope をそのまま使い、byte 係数では見積もらない。
+    /// production の snapshot/WAL payload 型と保存形式 をそのまま使い、byte 係数では見積もらない。
     func quotaCapacityCandidates(
         reservation: ApplyChangeSetReservation,
         futureResult: ApplyChangeSetResult,
@@ -1150,14 +1121,10 @@ private actor ApplyChangeSetState {
                     runtimeEvents: runtimeEvents + reservation.request.changes.compactMap {
                         $0.paths.last.map { .init(transactionID: transactionID.rawValue, path: $0) }
                     }, runtimeCommitted: runtimeCommitted.union([transactionID.rawValue]),
-                    controlReceipts: controlReceipts, consumedOwnerProofIDs: consumedOwnerProofIDs,
+                    controlReceipts: controlReceipts,
                     legacyExpired: legacyExpired, legacyReused: legacyReused))
             }
-            let sealed = try AES.GCM.seal(plaintext, using: encryptionKey,
-                authenticating: Data("aishell.apply-change-set-state-envelope.v1".utf8))
-            return try JSONEncoder.sorted.encode(EncryptedStateEnvelope(schema: "aishell.apply-change-set-state-envelope.v1",
-                nonce: Data(sealed.nonce).base64EncodedString(), ciphertext: sealed.ciphertext.base64EncodedString(),
-                tag: sealed.tag.base64EncodedString()))
+            return plaintext
         }
 
         func branch(_ phases: [(String, String?)], terminal: Bool) throws -> (snapshots: [Data], lines: [Data]) {
@@ -1274,15 +1241,10 @@ private actor ApplyChangeSetState {
                 generation: generation, head: head, capabilities: capabilities, slots: slots, transactions: transactions,
                 reservations: reservations, tamperedReservations: tamperedReservations, orphanPins: orphanPins,
                 targetMutationReceipts: targetMutationReceipts, runtimeEvents: runtimeEvents, runtimeCommitted: runtimeCommitted,
-                controlReceipts: controlReceipts, consumedOwnerProofIDs: consumedOwnerProofIDs,
+                controlReceipts: controlReceipts,
                 legacyExpired: legacyExpired, legacyReused: legacyReused))
         }
-        let sealed = try AES.GCM.seal(plaintext, using: encryptionKey, authenticating: Data("aishell.apply-change-set-state-envelope.v1".utf8))
-        let envelope = EncryptedStateEnvelope(
-            schema: "aishell.apply-change-set-state-envelope.v1",
-            nonce: Data(sealed.nonce).base64EncodedString(), ciphertext: sealed.ciphertext.base64EncodedString(), tag: sealed.tag.base64EncodedString()
-        )
-        return try JSONEncoder.sorted.encode(envelope)
+        return plaintext
     }
 
     func persist() throws {
@@ -1336,12 +1298,10 @@ private actor ApplyChangeSetState {
         simulateCanonicalRenameCrash: Bool = false) async throws {
         let plaintext = try JSONEncoder.sorted.encode(reservation.request)
         let aad = reservationAAD(reservation, plaintextLength: plaintext.count, quotaBytes: 0)
-        let sealed = try AES.GCM.seal(plaintext, using: encryptionKey, authenticating: try JSONEncoder.sorted.encode(aad))
-        let record = EncryptedReservationRecord(schema: aad.schema, reservationID: aad.reservationID,
+        let record = StoredReservationRecord(schema: aad.schema, reservationID: aad.reservationID,
             requestDigest: aad.requestDigest, rootDigest: aad.rootDigest, clientID: aad.clientID,
             clientEpoch: aad.clientEpoch, requestSequence: aad.requestSequence, plaintextLength: aad.plaintextLength,
-            quotaBytes: 0, nonce: Data(sealed.nonce).base64EncodedString(),
-            ciphertext: sealed.ciphertext.base64EncodedString(), tag: sealed.tag.base64EncodedString())
+            quotaBytes: 0, nonce: nil, ciphertext: nil, tag: nil, request: reservation.request)
         let encoded = try JSONEncoder.sorted.encode(record)
         try await Self.materializeQuotaData(encoded, destination: reservationURL(reservation.id), ledger: ledger,
             materialID: "canonical", idempotencyKey: "canonical:\(reservation.requestDigest)",
@@ -1351,33 +1311,41 @@ private actor ApplyChangeSetState {
     private func writeTestingReservationRecord(_ reservation: ApplyChangeSetReservation) throws {
         let plaintext = try JSONEncoder.sorted.encode(reservation.request)
         let aad = reservationAAD(reservation, plaintextLength: plaintext.count, quotaBytes: 0)
-        let sealed = try AES.GCM.seal(plaintext, using: encryptionKey, authenticating: try JSONEncoder.sorted.encode(aad))
-        let record = EncryptedReservationRecord(schema: aad.schema, reservationID: aad.reservationID,
+        let record = StoredReservationRecord(schema: aad.schema, reservationID: aad.reservationID,
             requestDigest: aad.requestDigest, rootDigest: aad.rootDigest, clientID: aad.clientID,
             clientEpoch: aad.clientEpoch, requestSequence: aad.requestSequence, plaintextLength: aad.plaintextLength,
-            quotaBytes: 0, nonce: Data(sealed.nonce).base64EncodedString(), ciphertext: sealed.ciphertext.base64EncodedString(),
-            tag: sealed.tag.base64EncodedString())
+            quotaBytes: 0, nonce: nil, ciphertext: nil, tag: nil, request: reservation.request)
         try Self.atomicDurableWrite(try JSONEncoder.sorted.encode(record), to: reservationURL(reservation.id))
     }
     nonisolated private func decryptReservationRecord(_ binding: StoredReservationBinding) throws -> ApplyChangeSetRequest {
         do {
-            let record = try JSONDecoder().decode(EncryptedReservationRecord.self, from: Data(contentsOf: reservationURL(binding.id)))
+            let data = try Data(contentsOf: reservationURL(binding.id))
+            let record = try JSONDecoder().decode(StoredReservationRecord.self, from: data)
             let aad = ReservationAAD(schema: record.schema, reservationID: record.reservationID, requestDigest: record.requestDigest,
                 rootDigest: record.rootDigest, clientID: record.clientID, clientEpoch: record.clientEpoch,
                 requestSequence: record.requestSequence, plaintextLength: record.plaintextLength, quotaBytes: record.quotaBytes)
             guard record.schema == "aishell.apply-change-set-reservation-record.v1", record.reservationID == binding.id,
-                  record.requestDigest == binding.requestDigest, record.clientID == binding.clientID,
-                  record.clientEpoch == binding.clientEpoch, record.requestSequence == binding.requestSequence,
-                  let nonce = Data(base64Encoded: record.nonce),
-                  let ciphertext = Data(base64Encoded: record.ciphertext), let tag = Data(base64Encoded: record.tag) else { throw ApplyChangeSetError(.changeSetReservationCorrupt) }
-            let plaintext = try AES.GCM.open(try .init(nonce: .init(data: nonce), ciphertext: ciphertext, tag: tag), using: encryptionKey, authenticating: try JSONEncoder.sorted.encode(aad))
-            let request = try JSONDecoder().decode(ApplyChangeSetRequest.self, from: plaintext)
+                  record.requestDigest == binding.requestDigest,
+                  record.rootDigest == root.standardizedFileURL.resolvingSymlinksInPath().path.applyStringSHA256,
+                  record.clientID == binding.clientID,
+                  record.clientEpoch == binding.clientEpoch, record.requestSequence == binding.requestSequence else { throw ApplyChangeSetError(.changeSetReservationCorrupt) }
+            let plaintext: Data
+            let request: ApplyChangeSetRequest
+            if let stored = record.request {
+                request = stored
+                plaintext = try JSONEncoder.sorted.encode(stored)
+            } else {
+                plaintext = try LegacyChangeSetEncryption.decode(
+                    data, key: legacyKey,
+                    aad: JSONEncoder.sorted.encode(aad))
+                request = try JSONDecoder().decode(ApplyChangeSetRequest.self, from: plaintext)
+            }
             guard plaintext.count == record.plaintextLength, request.clientID == binding.clientID,
                   request.clientEpoch == binding.clientEpoch, request.requestSequence == binding.requestSequence,
                   ApplyChangeSetService.requestDigest(request) == binding.requestDigest else { throw ApplyChangeSetError(.changeSetReservationCorrupt) }
             return request
         } catch let error as ApplyChangeSetError { throw error }
-        catch { throw ApplyChangeSetError(.changeSetReservationCorrupt, "reservation authentication failed") }
+        catch { throw ApplyChangeSetError(.changeSetReservationCorrupt, "保存された編集予約を読み取れません。") }
     }
     private func removeReservationRecord(_ id: String) throws {
         let url = reservationURL(id)
@@ -1446,54 +1414,15 @@ private actor ApplyChangeSetState {
     }
 }
 
-public final class ApplyChangeSetSecretStore: @unchecked Sendable {
+public final class ApplyChangeSetStateStore: @unchecked Sendable {
     fileprivate let state: ApplyChangeSetState
-    fileprivate let key: SymmetricKey
+    fileprivate let legacyKey: Data?
 
     public init(baseDirectory: URL, stateDirectory: URL, root: URL,
                 disabledCapabilities: Set<ApplyChangeSetCapability> = [], legacyStateDirectory: URL? = nil) throws {
-        let snapshot = stateDirectory.appendingPathComponent("apply-change-set-state.enc.json")
-        key = SymmetricKey(data: try LocalChangeSetKey.loadOrCreate(in: stateDirectory,
-            encryptedStateExists: FileManager.default.fileExists(atPath: snapshot.path)))
+        legacyKey = try LegacyChangeSetEncryption.key(in: stateDirectory)
         state = try ApplyChangeSetState(base: baseDirectory, stateDirectory: stateDirectory, root: root,
-            disabled: disabledCapabilities, encryptionKey: key, legacyStateDirectory: legacyStateDirectory)
-    }
-
-    public func issueOwnerProof(controlRequestID: String, action: ApplyChangeSetControlAction, root: URL, expiresAt: Date) throws -> String {
-        let actionDigest = try JSONEncoder.sorted.encode(action).applySHA256
-        let payload = ApplyChangeSetOwnerProofPayload(
-            schema: "aishell.apply-change-set-owner-proof.v1", proofID: UUID().uuidString.lowercased(),
-            rootPath: root.standardizedFileURL.resolvingSymlinksInPath().path, controlRequestID: controlRequestID,
-            actionDigest: actionDigest, expiresAt: expiresAt
-        )
-        let data = try JSONEncoder.sorted.encode(payload)
-        let tag = Data(HMAC<SHA256>.authenticationCode(for: data, using: key))
-        return data.base64EncodedString() + "." + tag.base64EncodedString()
-    }
-
-    fileprivate func verifyOwnerProof(_ encoded: String, request: ApplyChangeSetControlRequest, root: URL, now: Date) throws -> ApplyChangeSetOwnerProofPayload {
-        let pieces = encoded.split(separator: ".", omittingEmptySubsequences: false)
-        guard pieces.count == 2, let payloadData = Data(base64Encoded: String(pieces[0])), let providedTag = Data(base64Encoded: String(pieces[1])) else {
-            throw ApplyChangeSetError(.clientOwnerProofInvalid)
-        }
-        let expectedTag = Data(HMAC<SHA256>.authenticationCode(for: payloadData, using: key))
-        guard Self.constantTimeEqual(providedTag, expectedTag), let payload = try? JSONDecoder().decode(ApplyChangeSetOwnerProofPayload.self, from: payloadData),
-              payload.schema == "aishell.apply-change-set-owner-proof.v1", payload.expiresAt >= now,
-              payload.rootPath == root.standardizedFileURL.resolvingSymlinksInPath().path,
-              payload.controlRequestID == request.controlRequestID,
-              payload.actionDigest == (try? JSONEncoder.sorted.encode(request.action).applySHA256) else {
-            throw ApplyChangeSetError(.clientOwnerProofInvalid)
-        }
-        return payload
-    }
-
-    private static func constantTimeEqual(_ lhs: Data, _ rhs: Data) -> Bool {
-        guard lhs.count == rhs.count else { return false }
-        return zip(lhs, rhs).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
-    }
-
-    static func removeKeyForTesting(stateDirectory: URL) {
-        try? FileManager.default.removeItem(at: stateDirectory.appendingPathComponent(LocalChangeSetKey.filename))
+            disabled: disabledCapabilities, legacyKey: legacyKey, legacyStateDirectory: legacyStateDirectory)
     }
 }
 
@@ -1599,7 +1528,7 @@ public actor ApplyChangeSetService {
     private let faults: ApplyChangeSetFailureInjector
     private let clock: ApplyChangeSetTestClock
     private let state: ApplyChangeSetState
-    private let secretStore: ApplyChangeSetSecretStore
+    private let stateStore: ApplyChangeSetStateStore
     private let quotaOwner: ChangeSetQuotaLedger.OwnerBinding
     private let clientRegistry: ChangeSetClientRegistry
     private let transactionStore: ChangeSetTransactionStore
@@ -1611,23 +1540,23 @@ public actor ApplyChangeSetService {
     private var quotaLeaseDescriptors: [String: Int32] = [:]
     private var dedicatedStoresBootstrapped = false
 
-    public init(runtimeStore: RuntimeStore, stateDirectory: URL, evidenceStore: EvidenceStore, secretStore: ApplyChangeSetSecretStore, workspaceRuntime: WorkspaceStateRuntime, failureInjector: ApplyChangeSetFailureInjector, clock: ApplyChangeSetTestClock,
+    public init(runtimeStore: RuntimeStore, stateDirectory: URL, evidenceStore: EvidenceStore, stateStore: ApplyChangeSetStateStore, workspaceRuntime: WorkspaceStateRuntime, failureInjector: ApplyChangeSetFailureInjector, clock: ApplyChangeSetTestClock,
         quotaOwner overrideQuotaOwner: ChangeSetQuotaLedger.OwnerBinding? = nil) throws {
         self.runtimeStore = runtimeStore; self.stateDirectory = stateDirectory; self.evidenceStore = evidenceStore
-        self.workspaceRuntime = workspaceRuntime; faults = failureInjector; self.clock = clock; self.secretStore = secretStore; state = secretStore.state
+        self.workspaceRuntime = workspaceRuntime; faults = failureInjector; self.clock = clock; self.stateStore = stateStore; state = stateStore.state
         quotaOwner = overrideQuotaOwner ?? .current(leaseDuration: 60)
         try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true)
-        let storeKey = secretStore.key.withUnsafeBytes { Data($0) }
+        let storeKey = stateStore.legacyKey
         let registryClock = ApplyChangeSetRegistryClock()
         self.registryClock = registryClock
         clientRegistry = try ChangeSetClientRegistry(
             directory: stateDirectory.appendingPathComponent("client-registry", isDirectory: true),
-            rootIdentityDigest: secretStore.state.root.standardizedFileURL.resolvingSymlinksInPath().path.applyStringSHA256,
-            hmacKey: storeKey, now: { registryClock.now() }
+            rootIdentityDigest: stateStore.state.root.standardizedFileURL.resolvingSymlinksInPath().path.applyStringSHA256,
+            now: { registryClock.now() }
         )
         transactionStore = try ChangeSetTransactionStore(
             directory: stateDirectory.appendingPathComponent("transaction-store", isDirectory: true),
-            encryptionKey: storeKey,
+            legacyKey: storeKey,
             maxRuntimeReceipts: ChangeSetClientRegistry.slotCount * ChangeSetClientRegistry.replayCapacity,
             maxTransactionReferences: ChangeSetClientRegistry.slotCount * ChangeSetClientRegistry.replayCapacity
         )
@@ -1639,7 +1568,7 @@ public actor ApplyChangeSetService {
         self.cutoverCompatibility = cutoverCompatibility
         cutoverCoordinator = try ChangeSetCutoverCoordinator(
             directory: stateDirectory.appendingPathComponent("cross-store-cutover", isDirectory: true),
-            encryptionKey: storeKey, registry: clientRegistry, transactionStore: transactionStore,
+            legacyKey: storeKey, registry: clientRegistry, transactionStore: transactionStore,
             compatibility: cutoverCompatibility, now: { registryClock.now() })
     }
 
@@ -1853,8 +1782,7 @@ public actor ApplyChangeSetService {
             throw ApplyChangeSetSimulatedCrash(point: .quotaPrepareBeforeLedger)
         }
         let canonical = try ChangeSetQuotaCapacityPlanner.canonicalEnvelope(reservationID: reservation.id,
-            digest: reservation.requestDigest, request: reservation.request, root: state.root,
-            encryptionKey: state.encryptionKey)
+            digest: reservation.requestDigest, request: reservation.request, root: state.root)
         let filesystem = try ChangeSetQuotaCapacityPlanner.filesystemPayload(request: reservation.request,
             digest: reservation.requestDigest, root: state.root)
         let future = try await state.quotaCapacityCandidates(reservation: reservation,
@@ -1991,10 +1919,10 @@ public actor ApplyChangeSetService {
         let evidenceStore = EvidenceStore(baseDirectory: stateDirectory.appendingPathComponent("evidence", isDirectory: true))
         let legacyDirectory = runtimeStore.baseDirectory.appendingPathComponent("apply-change-set", isDirectory: true)
             .appendingPathComponent(root.path.applyStringSHA256, isDirectory: true)
-        let secretStore = try ApplyChangeSetSecretStore(baseDirectory: stateDirectory, stateDirectory: stateDirectory,
+        let stateStore = try ApplyChangeSetStateStore(baseDirectory: stateDirectory, stateDirectory: stateDirectory,
             root: root, legacyStateDirectory: legacyDirectory)
         let service = try ApplyChangeSetService(runtimeStore: runtimeStore, stateDirectory: stateDirectory,
-            evidenceStore: evidenceStore, secretStore: secretStore, workspaceRuntime: workspaceRuntime,
+            evidenceStore: evidenceStore, stateStore: stateStore, workspaceRuntime: workspaceRuntime,
             failureInjector: ApplyChangeSetFailureInjector(), clock: ApplyChangeSetTestClock())
         try await service.bootstrap(root: root)
         _ = try await service.recover(root: root)
@@ -2058,7 +1986,7 @@ public actor ApplyChangeSetService {
         let compat = LegacyControlCompatSnapshot(sourceDigest: legacy.sourceDigest,
             receipts: legacy.controlReceipts.mapValues {
                 .init(expiresAt: $0.expiresAt, requestDigest: $0.requestDigest, result: $0.result)
-            }, consumedOwnerProofIDs: legacy.consumedOwnerProofIDs)
+            })
         await cutoverCompatibility.configure(sourceDigest: legacy.sourceDigest, snapshot: compat)
         let source = ChangeSetCutoverLegacySnapshot(sourceDigest: legacy.sourceDigest,
             preparedAt: cutoverTime, cursorBinding: legacy.cursorBinding, registry: legacy.registry,
@@ -2602,12 +2530,12 @@ public actor ApplyChangeSetService {
                 let controlRequestID = UUID().uuidString.lowercased()
                 let now = await clock.now()
                 registryClock.set(now)
-                let proofDigest = Data("managed-mcp-client:\(controlRequestID)".utf8).applySHA256
+                let requestDigest = Data("managed-mcp-client:\(controlRequestID)".utf8).applySHA256
                 do {
                     _ = try await clientRegistry.allocate(
                         controlRequestID: controlRequestID,
-                        proofIDDigest: proofDigest,
-                        proofExpiresAt: now.addingTimeInterval(300),
+                        requestDigest: requestDigest,
+                        expiresAt: now.addingTimeInterval(300),
                         expectedRegistryGeneration: registry.generation
                     )
                 } catch let error as ChangeSetClientRegistryError {
@@ -2668,7 +2596,6 @@ public actor ApplyChangeSetService {
         do { try await validateIdentityAndReplay(request) } catch let replay as ReplayResult { return replay.result }
         try await validateRequest(request)
 
-        if await state.secretFailure != nil { throw ApplyChangeSetError(.changeSetSecretStoreUnavailable) }
         let race = await faults.consumeRace()
 
         let transaction = ApplyChangeSetTransactionID(request.transactionIdentity)
@@ -2977,22 +2904,17 @@ public actor ApplyChangeSetService {
         try await state.repairPendingJournals()
         let now = await clock.now()
         registryClock.set(now)
-        let proof = try secretStore.verifyOwnerProof(request.ownerProof, request: request, root: state.root, now: now)
         do {
             switch try await legacyControlStore.lookup(controlRequestID: request.controlRequestID,
                 requestDigest: Self.controlDigest(request), now: now) {
             case let .replay(result): return result
             case .missing, .expired: break
             }
-            guard !(await legacyControlStore.consumedOwnerProof(proof.proofID)) else {
-                throw ApplyChangeSetError(.clientOwnerProofInvalid)
-            }
             let newCount = await clientRegistry.unexpiredControlReceiptCount(at: now)
             try await legacyControlStore.requireReceiptCapacity(additionalCount: newCount + 1, now: now)
         } catch let error as LegacyControlCompatStoreError {
             let code: ApplyChangeSetError.Code = switch error.code {
             case .requestConflict: .changeSetSequenceConflict
-            case .proofConsumed: .clientOwnerProofInvalid
             case .capacityExceeded: .clientControlCapacityExceeded
             case .secretStoreUnavailable: .changeSetSecretStoreUnavailable
             case .storeCorrupt, .importConflict: .changeSetStoreCorrupt
@@ -3035,7 +2957,6 @@ public actor ApplyChangeSetService {
                 result = try await legacyControlStore.record(
                     controlRequestID: request.controlRequestID,
                     requestDigest: digest,
-                    proofID: proof.proofID,
                     result: result,
                     expiresAt: now.addingTimeInterval(300),
                     now: now
@@ -3043,7 +2964,6 @@ public actor ApplyChangeSetService {
             } catch let error as LegacyControlCompatStoreError {
                 let code: ApplyChangeSetError.Code = switch error.code {
                 case .requestConflict: .changeSetSequenceConflict
-                case .proofConsumed: .clientOwnerProofInvalid
                 case .capacityExceeded: .clientControlCapacityExceeded
                 case .secretStoreUnavailable: .changeSetSecretStoreUnavailable
                 case .storeCorrupt, .importConflict: .changeSetStoreCorrupt
@@ -3054,23 +2974,23 @@ public actor ApplyChangeSetService {
             return result
         }
 
-        let proofDigest = proof.proofID.applyStringSHA256
+        let requestDigest = Self.controlDigest(request)
         let generation = await clientRegistry.snapshot().generation
         let receipt: ChangeSetClientControlReceipt
         do {
             switch request.action {
             case .allocate:
                 receipt = try await clientRegistry.allocate(controlRequestID: request.controlRequestID,
-                    proofIDDigest: proofDigest, proofExpiresAt: now.addingTimeInterval(300),
+                    requestDigest: requestDigest, expiresAt: now.addingTimeInterval(300),
                     expectedRegistryGeneration: generation)
             case let .rotate(clientID, expectedEpoch):
                 receipt = try await clientRegistry.rotateEpoch(controlRequestID: request.controlRequestID,
-                    proofIDDigest: proofDigest, proofExpiresAt: now.addingTimeInterval(300),
+                    requestDigest: requestDigest, expiresAt: now.addingTimeInterval(300),
                     clientID: clientID, expectedEpoch: UInt64(expectedEpoch),
                     nextEpoch: UInt64(expectedEpoch + 1), expectedRegistryGeneration: generation)
             case let .retire(clientID, expectedEpoch):
                 receipt = try await clientRegistry.retire(controlRequestID: request.controlRequestID,
-                    proofIDDigest: proofDigest, proofExpiresAt: now.addingTimeInterval(300),
+                    requestDigest: requestDigest, expiresAt: now.addingTimeInterval(300),
                     clientID: clientID, expectedEpoch: UInt64(expectedEpoch),
                     expectedRegistryGeneration: generation)
             case let .reinitialize(expectedGeneration):
@@ -3078,7 +2998,7 @@ public actor ApplyChangeSetService {
                     throw ApplyChangeSetError(.clientEpochChanged)
                 }
                 receipt = try await clientRegistry.reinitialize(controlRequestID: request.controlRequestID,
-                    proofIDDigest: proofDigest, proofExpiresAt: now.addingTimeInterval(300),
+                    requestDigest: requestDigest, expiresAt: now.addingTimeInterval(300),
                     expectedRegistryGeneration: generation)
             case .abort:
                 fatalError("abort was handled above")
@@ -3132,7 +3052,7 @@ public actor ApplyChangeSetService {
         case .rotationBlocked: .clientRotationBlocked
         case .retireBlocked: .clientRetireBlocked
         case .reinitializeBlocked: .clientRegistryReinitializeBlocked
-        case .ownerProofInvalid, .ownerProofConsumed: .clientOwnerProofInvalid
+        case .controlRequestInvalid: .invalidArgument
         case .controlCapacityExceeded: .clientControlCapacityExceeded
         case .invalidEnvelope: .invalidArgument
         case .generationChanged: .clientEpochChanged
@@ -4276,9 +4196,8 @@ public enum ApplyChangeSetControlAction: Codable, Equatable, Sendable {
 public struct ApplyChangeSetControlRequest: Codable, Equatable, Sendable {
     public let controlRequestID: String
     public let action: ApplyChangeSetControlAction
-    public let ownerProof: String
-    public init(controlRequestID: String = UUID().uuidString.lowercased(), action: ApplyChangeSetControlAction, ownerProof: String = "") {
-        self.controlRequestID = controlRequestID; self.action = action; self.ownerProof = ownerProof
+    public init(controlRequestID: String = UUID().uuidString.lowercased(), action: ApplyChangeSetControlAction) {
+        self.controlRequestID = controlRequestID; self.action = action
     }
 }
 
@@ -4326,7 +4245,6 @@ private extension ApplyChangeSetState {
         }
         runtimeCommitted = Set(runtimeReceipts.map { $0.transactionID.rawValue })
         controlReceipts = [:]
-        consumedOwnerProofIDs = []
         dedicatedStoreMode = true
         if requiresCoreSnapshotCutover { try persist() }
         try Self.retireLegacyTransactionJournals(stateDirectory: stateDirectory)
@@ -4379,7 +4297,6 @@ private extension ApplyChangeSetState {
             tamperedReservations: tamperedReservations, orphanPins: orphanPins,
             targetMutationReceipts: targetMutationReceipts, runtimeEvents: runtimeEvents,
             runtimeCommitted: runtimeCommitted, controlReceipts: controlReceipts,
-            consumedOwnerProofIDs: consumedOwnerProofIDs,
             legacyExpired: legacyExpired, legacyReused: legacyReused
         )
         let sourceDigest = try JSONEncoder.sorted.encode(durable).applySHA256
@@ -4454,7 +4371,7 @@ private extension ApplyChangeSetState {
             cursorBinding: .init(root: root.standardizedFileURL.resolvingSymlinksInPath().path,
                 generation: generation), registry: registry,
             transactions: transactionSnapshots, runtimeReceipts: receipts,
-            controlReceipts: controlReceipts, consumedOwnerProofIDs: consumedOwnerProofIDs)
+            controlReceipts: controlReceipts)
     }
 
     func appendJournal(_ id: ApplyChangeSetTransactionID, phase: String, path: String? = nil) async {
@@ -4577,11 +4494,10 @@ private extension ApplyChangeSetState {
     }
     func controlReplay(_ request: ApplyChangeSetControlRequest) throws -> ApplyChangeSetControlResult? {
         guard let receipt = controlReceipts[request.controlRequestID] else { return nil }
-        guard receipt.requestDigest == ApplyChangeSetService.controlDigest(request) else { throw ApplyChangeSetError(.clientOwnerProofInvalid) }
+        guard receipt.requestDigest == ApplyChangeSetService.controlDigest(request) else { throw ApplyChangeSetError(.changeSetSequenceConflict) }
         return receipt.result
     }
     func controlReceiptCount() -> Int { controlReceipts.count }
-    func ownerProofIsUnused(_ id: String) -> Bool { !consumedOwnerProofIDs.contains(id) }
     func cursor() -> ApplyChangeSetCursor { .init(root: root.path, generation: generation, sequence: head) }
     func setLegacyMigrated() async { legacyExpired = true; legacyReused = false; await persistOrRecord() }
     func slot(id: String) -> ClientSlot? { slots.first { $0.id == id } }
@@ -4904,7 +4820,6 @@ private extension ApplyChangeSetState {
         slots[index].nonterminal = true
     }
     func expireControlReceipts(now: Date) async { controlReceipts = controlReceipts.filter { $0.value.expiresAt > now }; await persistOrRecord() }
-    func saveControlReceipt(_ id: String, requestDigest: String, proofID: String, result: ApplyChangeSetControlResult, expiry: Date) throws { consumedOwnerProofIDs.insert(proofID); controlReceipts[id] = .init(expiresAt: expiry, requestDigest: requestDigest, result: result); try persist() }
 
     func performControl(_ request: ApplyChangeSetControlRequest) async throws -> ApplyChangeSetControlResult {
         switch request.action {
@@ -4957,7 +4872,7 @@ private extension ApplyChangeSetState {
 
 public final class ApplyChangeSetTestProbe: @unchecked Sendable {
     public let evidenceStore: EvidenceStore
-    public let secretStore: ApplyChangeSetSecretStore
+    public let stateStore: ApplyChangeSetStateStore
     public let workspaceRuntime: WorkspaceStateRuntime
     private let base: URL
     private let root: URL
@@ -4969,15 +4884,14 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
     private var synchronousSequence = 1
     private var externalCleanupURLs: [URL] = []
 
-    deinit { ApplyChangeSetSecretStore.removeKeyForTesting(stateDirectory: stateDirectory) }
 
     public init(baseDirectory: URL, disabledCapabilities: Set<ApplyChangeSetCapability>, clock: ApplyChangeSetTestClock) throws {
         base = baseDirectory; root = baseDirectory.appendingPathComponent("root", isDirectory: true); stateDirectory = baseDirectory.appendingPathComponent("state", isDirectory: true)
         runtimeStore = RuntimeStore(baseDirectory: baseDirectory.appendingPathComponent("runtime", isDirectory: true))
         evidenceStore = EvidenceStore(baseDirectory: baseDirectory.appendingPathComponent("evidence", isDirectory: true))
         workspaceRuntime = WorkspaceStateRuntime(runtimeStore: runtimeStore, startsFSEvents: false)
-        let secrets = try ApplyChangeSetSecretStore(baseDirectory: baseDirectory, stateDirectory: stateDirectory, root: root, disabledCapabilities: disabledCapabilities)
-        secretStore = secrets; state = secrets.state; self.clock = clock
+        let store = try ApplyChangeSetStateStore(baseDirectory: baseDirectory, stateDirectory: stateDirectory, root: root, disabledCapabilities: disabledCapabilities)
+        stateStore = store; state = store.state; self.clock = clock
         // Read-only failure fixtures must already be part of the caller's baseline tree.
         for index in 0..<3 { try Data("before-\(index)".utf8).write(to: root.appendingPathComponent("stale-\(index).txt")) }
         try Data("x".utf8).write(to: root.appendingPathComponent("exists.txt"))
@@ -5067,13 +4981,13 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
         try Data("created".utf8).write(to:temp.appendingPathComponent("created.txt")); try Data("write-after".utf8).write(to:temp.appendingPathComponent("write.txt")); try? FileManager.default.removeItem(at:temp.appendingPathComponent("delete.txt")); try? FileManager.default.moveItem(at:temp.appendingPathComponent("rename.txt"),to:temp.appendingPathComponent("renamed.txt")); return try publicTreeDigest(temp)
     }
     public func restartedService(failureInjector: ApplyChangeSetFailureInjector, clock: ApplyChangeSetTestClock, autoRecover: Bool) async throws -> ApplyChangeSetService {
-        let freshSecrets = try ApplyChangeSetSecretStore(baseDirectory: base, stateDirectory: stateDirectory, root: root)
-        state = freshSecrets.state
+        let freshStore = try ApplyChangeSetStateStore(baseDirectory: base, stateDirectory: stateDirectory, root: root)
+        state = freshStore.state
         return try ApplyChangeSetService(
             runtimeStore: runtimeStore,
             stateDirectory: stateDirectory,
             evidenceStore: evidenceStore,
-            secretStore: freshSecrets,
+            stateStore: freshStore,
             workspaceRuntime: workspaceRuntime,
             failureInjector: failureInjector,
             clock: clock
@@ -5280,7 +5194,6 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
     public func registrySlotCount(service: ApplyChangeSetService) async throws -> Int {
         await service.registrySnapshotForTesting().slots.count
     }
-    public func performControl(with tamper: ApplyChangeSetOwnerProofTamper, service: ApplyChangeSetService) async throws -> ApplyChangeSetControlResult { try await service.control(.init(action:.allocate,ownerProof:"tampered-\(tamper)")) }
     public func makeClientNonterminal(_ client: ApplyChangeSetClient,
         service: ApplyChangeSetService) async throws {
         try await service.admitRegistryReplayForTesting(client)
@@ -5310,7 +5223,7 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
             try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
         }
         let canonical = try ChangeSetQuotaCapacityPlanner.canonicalEnvelope(reservationID: reservation.id,
-            digest: reservation.requestDigest, request: reservation.request, root: root, encryptionKey: state.encryptionKey)
+            digest: reservation.requestDigest, request: reservation.request, root: root)
         let filesystem = try ChangeSetQuotaCapacityPlanner.filesystemPayload(request: reservation.request,
             digest: reservation.requestDigest, root: root)
         let future = try await state.quotaCapacityCandidates(reservation: reservation, futureResult: filesystem.result,
@@ -5355,14 +5268,13 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
     }
     public func independentlyComputedReservationDigest(_ reservation: ApplyChangeSetReservation) throws -> String { ApplyChangeSetService.requestDigest(reservation.request) }
     public func decryptRequest(_ reservation: ApplyChangeSetReservation) async throws -> ApplyChangeSetRequest {
-        let freshSecrets = try ApplyChangeSetSecretStore(baseDirectory: base, stateDirectory: stateDirectory, root: root)
-        let request = try await freshSecrets.state.reservationRequest(reservation.id)
+        let freshStore = try ApplyChangeSetStateStore(baseDirectory: base, stateDirectory: stateDirectory, root: root)
+        let request = try await freshStore.state.reservationRequest(reservation.id)
         guard ApplyChangeSetService.requestDigest(request) == reservation.requestDigest else { throw ApplyChangeSetError(.changeSetReservationCorrupt) }
         return request
     }
     public func restoreReservation(_ reservation: ApplyChangeSetReservation) async throws { await state.restoreReservation(reservation) }
     public func tamperReservation(_ tamper: ApplyChangeSetReservationTamper) async throws { try await state.tamperFirstReservation(tamper) }
-    public func injectSecretFailure(_ failure: ApplyChangeSetSecretFailure) async throws { await state.setSecretFailure(failure) }
     public func logsContainNone(of fragments: [String]) async throws -> Bool {
         Self.filesContainNone(in: stateDirectory, fragments: fragments)
     }
@@ -5427,15 +5339,10 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
     public func legacyCheckpointEntriesWereReused() async throws -> Bool { await state.legacyReused }
     public func durableStateSchemaAndKeys() throws -> (schema: String, keys: Set<String>) {
         let url = stateDirectory.appendingPathComponent("apply-change-set-state.enc.json")
-        let envelope = try JSONDecoder().decode(EncryptedStateEnvelope.self, from: Data(contentsOf: url))
-        guard let nonce = Data(base64Encoded: envelope.nonce),
-              let ciphertext = Data(base64Encoded: envelope.ciphertext),
-              let tag = Data(base64Encoded: envelope.tag) else {
-            throw ApplyChangeSetError(.changeSetStoreCorrupt)
-        }
-        let box = try AES.GCM.SealedBox(nonce: .init(data: nonce), ciphertext: ciphertext, tag: tag)
-        let plaintext = try AES.GCM.open(box, using: secretStore.key,
-            authenticating: Data("aishell.apply-change-set-state-envelope.v1".utf8))
+        let data = try Data(contentsOf: url)
+        let plaintext = try LegacyChangeSetEncryption.schema(data) == "aishell.apply-change-set-state-envelope.v1"
+            ? LegacyChangeSetEncryption.decode(data, key: stateStore.legacyKey,
+                aad: Data("aishell.apply-change-set-state-envelope.v1".utf8)) : data
         guard let object = try JSONSerialization.jsonObject(with: plaintext) as? [String: Any],
               let schema = object["schema"] as? String else {
             throw ApplyChangeSetError(.changeSetStoreCorrupt)
@@ -5477,8 +5384,7 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
     private func request(root: URL, client: ApplyChangeSetClient, service: ApplyChangeSetService, changes: [ApplyChangeSetChange]) async throws -> ApplyChangeSetRequest { .init(clientID:client.clientID,clientEpoch:client.epoch,requestSequence:try await nextSequence(client, service:service),cursor:try await service.currentCursor(root:root),changes:changes,diffByteBudget:65_536,retentionSeconds:3_600) }
     private func controlRequest(action: ApplyChangeSetControlAction) async throws -> ApplyChangeSetControlRequest {
         let id = UUID().uuidString.lowercased()
-        let proof = try secretStore.issueOwnerProof(controlRequestID: id, action: action, root: root, expiresAt: await clock.now().addingTimeInterval(300))
-        return .init(controlRequestID: id, action: action, ownerProof: proof)
+        return .init(controlRequestID: id, action: action)
     }
     private func stateGenerationSync() -> String { state.generation }
 }
@@ -5488,7 +5394,6 @@ private extension ApplyChangeSetState {
     func firstActiveClient() -> ApplyChangeSetClient? { guard let i=slots.firstIndex(where:{$0.active}) else{return nil}; return .init(clientID:slots[i].id,epoch:slots[i].epoch,slot:i) }
     func corrupt(_ id: ApplyChangeSetTransactionID) async { transactions[id]?.corrupt=true; await persistOrRecord() }
     func setEvidenceFailure(_ value: ApplyChangeSetEvidenceFailure) { evidenceFailure=value }
-    func setSecretFailure(_ value: ApplyChangeSetSecretFailure) { secretFailure=value }
     func fillReplay(through high: Int) {
         guard let i=slots.firstIndex(where:{$0.active}) else{return}; slots[i].highWater=high
         for sequence in max(1,high-255)...high {
@@ -5509,21 +5414,16 @@ private extension ApplyChangeSetState {
     func tamperFirstReservation(_ tamper: ApplyChangeSetReservationTamper) throws {
         guard let id=reservations.keys.first else { return }
         let url = reservationURL(id)
-        let original = try JSONDecoder().decode(EncryptedReservationRecord.self, from: Data(contentsOf: url))
-        func flipped(_ value: String) -> String {
-            guard var bytes = Data(base64Encoded: value), !bytes.isEmpty else { return value + "A" }
-            bytes[bytes.startIndex] ^= 1
-            return bytes.base64EncodedString()
-        }
-        let changed = EncryptedReservationRecord(
+        let original = try JSONDecoder().decode(StoredReservationRecord.self, from: Data(contentsOf: url))
+        let changed = StoredReservationRecord(
             schema: original.schema, reservationID: original.reservationID,
             requestDigest: tamper == .digest ? String(repeating: "0", count: 64) : original.requestDigest,
             rootDigest: tamper == .binding ? String(repeating: "f", count: 64) : original.rootDigest,
             clientID: original.clientID, clientEpoch: original.clientEpoch, requestSequence: original.requestSequence,
             plaintextLength: tamper == .length ? original.plaintextLength + 1 : original.plaintextLength,
             quotaBytes: original.quotaBytes, nonce: original.nonce,
-            ciphertext: tamper == .ciphertext ? flipped(original.ciphertext) : original.ciphertext,
-            tag: tamper == .tag ? flipped(original.tag) : original.tag
+            ciphertext: original.ciphertext,
+            tag: original.tag, request: original.request
         )
         try ApplyChangeSetState.atomicDurableWrite(try JSONEncoder.sorted.encode(changed), to: url)
         tamperedReservations.insert(id)

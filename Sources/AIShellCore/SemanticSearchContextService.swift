@@ -87,8 +87,6 @@ public actor SemanticSearchContextService {
             throw SearchContextServiceError.invalidArgument("semantic limits are outside the supported range")
         }
 
-        let configuration = try await runtimeStore.loadConfiguration()
-        guard !configuration.isPaused else { throw AIShellError.paused }
         let resolver = await runtimeStore.pathResolver()
         let root = try resolver.resolveExisting(request.path)
         let environment = try await workspaceRuntime.searchContextObservation(

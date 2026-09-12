@@ -133,7 +133,7 @@ final class ChangeSetServiceTests: XCTestCase {
         XCTAssertEqual(durable.schema, "aishell.apply-change-set-core-state.v1")
         XCTAssertTrue(durable.keys.isDisjoint(with: [
             "slots", "transactions", "runtimeEvents", "runtimeCommitted",
-            "controlReceipts", "consumedOwnerProofIDs",
+            "controlReceipts",
         ]))
 
         let restarted = try fixture.freshService()
@@ -1025,27 +1025,32 @@ final class ChangeSetServiceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: target), external)
     }
 
-    func testEncryptedDurableStateContainsNoRequestPlaintextAndFreshServiceReplays() async throws {
+    func testDurableStateIsPlainJSONAndFreshServiceReplays() async throws {
         let fixture = try await Fixture.make()
         defer { fixture.cleanup() }
         let request = try await fixture.singleWriteRequest(after: "very-secret-after-bytes")
         let first = try await fixture.service.apply(request)
-        let envelope = try Data(contentsOf: fixture.base.appendingPathComponent("state/apply-change-set-state.enc.json"))
-        XCTAssertNil(String(data: envelope, encoding: .utf8)?.range(of: "very-secret-after-bytes"))
+        let bytes = try Data(contentsOf: fixture.base.appendingPathComponent("state/apply-change-set-state.enc.json"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        XCTAssertEqual(object["schema"] as? String, "aishell.apply-change-set-core-state.v1")
+        XCTAssertNil(object["ciphertext"])
 
         let restarted = try fixture.freshService()
         let replay = try await restarted.apply(request)
         XCTAssertEqual(replay, first)
     }
 
-    func testReservationHasIndependentAuthenticatedCiphertextRecord() async throws {
+    func testReservationStoresReadableRequestAndKeepsIndependentQuota() async throws {
         let fixture = try await Fixture.make()
         defer { fixture.cleanup() }
         let request = try await fixture.singleWriteRequest(after: "reservation-secret-bytes")
         let reservation = try await fixture.probe.reserveWithoutAdmission(request)
         let record = fixture.base.appendingPathComponent("state/reservations/\(reservation.id).enc.json")
         let diskBytes = try Data(contentsOf: record)
-        XCTAssertNil(String(data: diskBytes, encoding: .utf8)?.range(of: "reservation-secret-bytes"))
+        XCTAssertNotNil(String(data: diskBytes, encoding: .utf8)?.range(of: "reservation-secret-bytes"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: diskBytes) as? [String: Any])
+        XCTAssertNil(object["ciphertext"])
+        XCTAssertNotNil(object["request"])
         let decrypted = try await fixture.probe.decryptRequest(reservation)
         XCTAssertEqual(decrypted, request)
         let quota = fixture.base.appendingPathComponent("state/reservations/quota-\(reservation.id).json")
@@ -1113,7 +1118,7 @@ private struct Fixture {
             runtimeStore: runtime,
             stateDirectory: base.appendingPathComponent("state", isDirectory: true),
             evidenceStore: probe.evidenceStore,
-            secretStore: probe.secretStore,
+            stateStore: probe.stateStore,
             workspaceRuntime: probe.workspaceRuntime,
             failureInjector: faults,
             clock: clock,
@@ -1125,8 +1130,8 @@ private struct Fixture {
     }
 
     func freshService(failureInjector: ApplyChangeSetFailureInjector = ApplyChangeSetFailureInjector()) throws -> ApplyChangeSetService {
-        let secrets = try ApplyChangeSetSecretStore(baseDirectory: base, stateDirectory: base.appendingPathComponent("state", isDirectory: true), root: root)
-        return try ApplyChangeSetService(runtimeStore: runtime, stateDirectory: base.appendingPathComponent("state", isDirectory: true), evidenceStore: evidence, secretStore: secrets, workspaceRuntime: workspace, failureInjector: failureInjector, clock: clock)
+        let secrets = try ApplyChangeSetStateStore(baseDirectory: base, stateDirectory: base.appendingPathComponent("state", isDirectory: true), root: root)
+        return try ApplyChangeSetService(runtimeStore: runtime, stateDirectory: base.appendingPathComponent("state", isDirectory: true), evidenceStore: evidence, stateStore: secrets, workspaceRuntime: workspace, failureInjector: failureInjector, clock: clock)
     }
     func singleWriteRequest(after: String) async throws -> ApplyChangeSetRequest {
         let before = try Data(contentsOf: root.appendingPathComponent("one.txt"))
@@ -1137,7 +1142,7 @@ private struct Fixture {
     }
 
     func cleanup() {
-        ApplyChangeSetSecretStore.removeKeyForTesting(stateDirectory: base.appendingPathComponent("state", isDirectory: true))
+
         try? FileManager.default.removeItem(at: base)
     }
 }
