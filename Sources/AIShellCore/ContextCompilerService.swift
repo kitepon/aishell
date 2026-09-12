@@ -136,6 +136,7 @@ public actor ContextCompilerService {
         sinceCursor: String? = nil,
         entryLimit: Int = 500,
         contextBudget: Int = 16_384,
+        contextPaths: [String]? = nil,
         gitDiffRequest: GitDiffContextRequest? = nil,
         projectProfileRequest: ProjectProfileProjectionRequest? = nil
     ) async throws -> WorkspaceSnapshotV2Result {
@@ -157,7 +158,8 @@ public actor ContextCompilerService {
             path: path,
             sinceCursor: sinceCursor,
             entryLimit: entryLimit,
-            contextBudget: contextBudget
+            contextBudget: contextBudget,
+            contextPaths: contextPaths
         )
         let gitDiff: GitDiffContextResult?
         if let gitDiffRequest {
@@ -316,111 +318,106 @@ public actor ContextCompilerService {
         return try await provider.search(request, environment: environment)
     }
 
+    private struct ReadPage: Codable {
+        let signature: String
+        var offsets: [Int]
+        let hashes: [String]
+    }
+
     public func readContext(
-        targets: [String],
-        byteBudget: Int = 65_536,
-        continuation: String? = nil
+        targets: [String], byteBudget: Int = 65_536, continuation: String? = nil
     ) async throws -> ReadContextResult {
-        guard !targets.isEmpty else {
-            throw AIShellError.invalidArgument("targetsは1件以上必要です。")
-        }
+        try await readContext(selections: targets.map { .init(path: $0) }, byteBudget: byteBudget, continuation: continuation)
+    }
+
+    public func readContext(
+        selections: [ReadContextTarget], byteBudget: Int = 65_536, continuation: String? = nil
+    ) async throws -> ReadContextResult {
+        guard !selections.isEmpty else { throw AIShellError.invalidArgument("targetsは1件以上必要です。") }
         let resolver = try await activeResolver()
         let budget = min(max(1, byteBudget), 1_048_576)
-        let signature = Self.signature(for: targets)
-        let start = try parseContinuation(continuation, signature: signature)
-        var chunks: [ContextChunk] = []
-        var returned = 0
-        var omitted = 0
-        var next: String?
-
-        for index in start.index..<targets.count {
-            let url = try resolver.resolveExisting(targets[index])
+        let signature = Self.signature(for: selections.map {
+            "\($0.path)\u{0}\($0.startLine ?? 1)\u{0}\($0.endLine ?? 0)\u{0}\($0.expectedSHA256 ?? "")"
+        })
+        var files: [(url: URL, data: Data, range: Range<Int>, sha: String)] = []
+        for target in selections {
+            let url = try resolver.resolveExisting(target.path)
             guard try url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory != true else {
                 throw AIShellError.invalidPath(url.path)
             }
             let data = try Data(contentsOf: url, options: .mappedIfSafe)
-            guard String(data: data, encoding: .utf8) != nil else {
-                throw AIShellError.notTextFile(url.path)
+            guard String(data: data, encoding: .utf8) != nil else { throw AIShellError.notTextFile(url.path) }
+            let sha = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            if let expected = target.expectedSHA256, expected != sha { throw AIShellError.contentChanged(url.path) }
+            let first = target.startLine ?? 1
+            guard first > 0, target.endLine == nil || target.endLine! >= first else {
+                throw AIShellError.invalidArgument("行範囲は1始まりでstart_line未満のend_lineを指定できません。")
             }
-            let contentSHA = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-            if index == start.index,
-               start.offset > 0,
-               let expectedSHA = start.expectedSHA,
-               expectedSHA != contentSHA {
-                throw AIShellError.contentChanged(url.path)
-            }
-            let offset = index == start.index ? min(start.offset, data.count) : 0
-            let remainingBudget = budget - returned
-            guard remainingBudget > 0 else {
-                omitted += data.count - offset
-                next = continuationToken(signature: signature, index: index, offset: offset, sha256: contentSHA)
-                for remaining in targets.dropFirst(index + 1) {
-                    if let remainingURL = try? resolver.resolveExisting(remaining),
-                       let size = try? remainingURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                        omitted += size
-                    }
+            var starts = [0]
+            for index in data.indices where data[index] == 10 { starts.append(index + 1) }
+            guard first <= starts.count else { throw AIShellError.invalidArgument("start_lineがファイルの行数を超えています。") }
+            let end = target.endLine.map { $0 < starts.count ? starts[$0] : data.count } ?? data.count
+            files.append((url, data, starts[first - 1]..<end, sha))
+        }
+        var offsets = Array(repeating: 0, count: files.count)
+        if let continuation {
+            if continuation.hasPrefix("read3:"),
+               let data = Data(base64Encoded: String(continuation.dropFirst(6))),
+               let page = try? JSONDecoder().decode(ReadPage.self, from: data),
+               page.signature == signature, page.offsets.count == files.count, page.hashes.count == files.count {
+                offsets = page.offsets
+                for index in files.indices where page.hashes[index] != files[index].sha {
+                    throw AIShellError.contentChanged(files[index].url.path)
                 }
-                break
-            }
-            if !chunks.isEmpty, data.count - offset > remainingBudget {
-                omitted += data.count - offset
-                next = continuationToken(signature: signature, index: index, offset: offset, sha256: contentSHA)
-                for remaining in targets.dropFirst(index + 1) {
-                    if let remainingURL = try? resolver.resolveExisting(remaining),
-                       let size = try? remainingURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                        omitted += size
-                    }
+            } else if continuation.hasPrefix("read2:"), selections.allSatisfy({ $0.startLine == nil && $0.endLine == nil && $0.expectedSHA256 == nil }) {
+                let old = try parseContinuation(continuation, signature: Self.signature(for: selections.map(\.path)))
+                guard old.index < files.count else { throw AIShellError.cursorExpired(continuation) }
+                for index in files.indices {
+                    offsets[index] = index < old.index ? files[index].range.count : index == old.index ? old.offset : 0
                 }
-                break
-            }
-            let maximumCount = min(remainingBudget, data.count - offset)
-            let selected = try Self.validUTF8Prefix(data: data, offset: offset, maximumCount: maximumCount)
-            let count = selected.count
-            let relative = displayPath(url: url, resolver: resolver)
-            chunks.append(ContextChunk(
-                path: relative,
-                text: String(data: selected, encoding: .utf8) ?? "",
-                sha256: contentSHA,
-                sizeBytes: data.count,
-                returnedBytes: selected.count,
-                omittedBytes: data.count - offset - selected.count
-            ))
-            returned += selected.count
-            omitted += data.count - offset - selected.count
-            if offset + count < data.count {
-                next = continuationToken(
-                    signature: signature,
-                    index: index,
-                    offset: offset + count,
-                    sha256: contentSHA
-                )
-                for remaining in targets[(index + 1)...] {
-                    if let remainingURL = try? resolver.resolveExisting(remaining),
-                       let size = try? remainingURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                        omitted += size
-                    }
-                }
-                break
-            }
-            if returned == budget, index + 1 < targets.count {
-                next = continuationToken(signature: signature, index: index + 1, offset: 0, sha256: nil)
-                for remaining in targets[(index + 1)...] {
-                    if let remainingURL = try? resolver.resolveExisting(remaining),
-                       let size = try? remainingURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                        omitted += size
-                    }
-                }
-                break
+                if let sha = old.expectedSHA, sha != files[old.index].sha { throw AIShellError.contentChanged(files[old.index].url.path) }
+            } else { throw AIShellError.cursorExpired(continuation) }
+        }
+        for index in files.indices where offsets[index] < 0 || offsets[index] > files[index].range.count {
+            throw AIShellError.cursorExpired(continuation ?? "")
+        }
+        // 小さい対象の余りを再配分し、大きい先頭対象による後続対象の飢餓を防ぐ。
+        var allocations = Array(repeating: 0, count: files.count)
+        var remaining = budget
+        while remaining > 0 {
+            let active = files.indices.filter { allocations[$0] < files[$0].range.count - offsets[$0] }
+            if active.isEmpty { break }
+            let share = max(1, remaining / active.count)
+            for index in active where remaining > 0 {
+                let count = min(share, remaining, files[index].range.count - offsets[index] - allocations[index])
+                allocations[index] += count
+                remaining -= count
             }
         }
-
-        return ReadContextResult(
-            schemaVersion: "aishell.read-context.v1",
-            chunks: chunks,
-            returnedBytes: returned,
-            omittedBytes: omitted,
-            continuation: next
-        )
+        var chunks: [ContextChunk] = []
+        var returned = 0
+        for index in files.indices {
+            let file = files[index]
+            guard offsets[index] < file.range.count || continuation == nil else { continue }
+            let start = file.range.lowerBound + offsets[index]
+            let selected = try Self.validUTF8Prefix(data: file.data, offset: start, maximumCount: allocations[index])
+            let startLine = 1 + file.data.prefix(start).filter { $0 == 10 }.count
+            offsets[index] += selected.count
+            chunks.append(ContextChunk(
+                path: displayPath(url: file.url, resolver: resolver), text: String(decoding: selected, as: UTF8.self),
+                sha256: file.sha, sizeBytes: file.data.count, returnedBytes: selected.count,
+                omittedBytes: file.range.count - offsets[index], startLine: startLine,
+                endLine: startLine + selected.dropLast().filter { $0 == 10 }.count, offsetBytes: start
+            ))
+            returned += selected.count
+        }
+        let omitted = files.indices.reduce(0) { $0 + files[$1].range.count - offsets[$1] }
+        let page = ReadPage(signature: signature, offsets: offsets, hashes: files.map(\.sha))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let next = omitted > 0 ? "read3:" + (try encoder.encode(page)).base64EncodedString() : nil
+        return ReadContextResult(schemaVersion: "aishell.read-context.v1", chunks: chunks,
+                                 returnedBytes: returned, omittedBytes: omitted, continuation: next)
     }
 
     public func searchContext(

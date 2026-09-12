@@ -461,18 +461,20 @@ final class MCPServer: Sendable {
             ))
         case "workspace_snapshot":
             try validateKeys(arguments, allowed: [
-                "path", "since_cursor", "entry_limit", "context_budget", "git_diff", "project_profile"
+                "path", "since_cursor", "entry_limit", "context_budget", "context_paths", "git_diff", "project_profile"
             ])
             let path = try strictOptionalString("path", in: arguments)
             let sinceCursor = try strictOptionalString("since_cursor", in: arguments)
             let entryLimit = try boundedInt("entry_limit", in: arguments, default: 500, minimum: 1, maximum: 5_000)
             let contextBudget = try boundedInt("context_budget", in: arguments, default: 16_384, minimum: 0, maximum: 65_536)
+            let contextPaths = arguments["context_paths"] == nil ? nil : try stringArray("context_paths", in: arguments)
             if arguments["git_diff"] != nil || arguments["project_profile"] != nil {
                 return try await .from(development.workspaceSnapshotV2(
                     path: path,
                     sinceCursor: sinceCursor,
                     entryLimit: entryLimit,
                     contextBudget: contextBudget,
+                    contextPaths: contextPaths,
                     gitDiffRequest: try gitDiffRequest(arguments["git_diff"]),
                     projectProfileRequest: try projectProfileRequest(arguments["project_profile"])
                 ))
@@ -481,7 +483,8 @@ final class MCPServer: Sendable {
                 path: path,
                 sinceCursor: sinceCursor,
                 entryLimit: entryLimit,
-                contextBudget: contextBudget
+                contextBudget: contextBudget,
+                contextPaths: contextPaths
             ))
         case "workspace_wait":
             try validateKeys(arguments, allowed: ["path", "from_cursor", "timeout_ms"])
@@ -496,7 +499,7 @@ final class MCPServer: Sendable {
         case "read_context":
             try validateKeys(arguments, allowed: ["targets", "byte_budget", "continuation"])
             return try await .from(development.readContext(
-                targets: try stringArray("targets", in: arguments),
+                selections: try readTargets(arguments["targets"]),
                 byteBudget: try boundedInt("byte_budget", in: arguments, default: 65_536, minimum: 1, maximum: 1_048_576),
                 continuation: try strictOptionalString("continuation", in: arguments)
             ))
@@ -1098,6 +1101,23 @@ final class MCPServer: Sendable {
     private func jsonString(_ value: String?) -> JSONValue { value.map(JSONValue.string) ?? .null }
     private func jsonInt(_ value: Int?) -> JSONValue { value.map { .number(Double($0)) } ?? .null }
 
+    private func readTargets(_ value: JSONValue?) throws -> [ReadContextTarget] {
+        guard let items = value?.arrayValue, !items.isEmpty else {
+            throw AIShellError.invalidArgument("targetsはパス文字列または行範囲objectの配列です。")
+        }
+        return try items.map { item in
+            if let path = item.stringValue { return .init(path: path) }
+            guard let object = item.objectValue else { throw AIShellError.invalidArgument("targetが不正です。") }
+            try validateKeys(object, allowed: ["path", "start_line", "end_line", "expected_sha256"])
+            func line(_ key: String) throws -> Int? {
+                guard object[key] != nil else { return nil }
+                return try boundedInt(key, in: object, default: 1, minimum: 1, maximum: Int.max)
+            }
+            return try .init(path: requiredString("path", in: object), startLine: line("start_line"),
+                             endLine: line("end_line"), expectedSHA256: strictOptionalString("expected_sha256", in: object))
+        }
+    }
+
     private func strictOptionalBool(_ key: String, in arguments: [String: JSONValue]) throws -> Bool? {
         guard let value = arguments[key] else { return nil }
         guard let result = value.boolValue else {
@@ -1357,26 +1377,42 @@ final class MCPServer: Sendable {
                 guard let chunk = value.objectValue,
                       let path = chunk["path"]?.stringValue,
                       let text = chunk["text"]?.stringValue else { return nil }
-                return "// --- \(path) ---\n\(text)"
+                let omitted = chunk["omittedBytes"]?.intValue ?? 0
+                return "// --- \(path) 未読=\(omitted) bytes ---\n\(text)"
             }.joined(separator: "\n") ?? ""
             return context.isEmpty ? header : "\(header)\n\(context)"
         }
         if name == "read_context", let chunks = result.objectValue?["chunks"]?.arrayValue {
-            return chunks.compactMap { value in
+            let body = chunks.compactMap { value in
                 guard let object = value.objectValue,
                       let path = object["path"]?.stringValue,
                       let text = object["text"]?.stringValue else { return nil }
-                return "// --- \(path) ---\n\(text)"
+                let start = object["startLine"]?.intValue ?? 1
+                let end = object["endLine"]?.intValue ?? start
+                let omitted = object["omittedBytes"]?.intValue ?? 0
+                return "// --- \(path):\(start)-\(end) 未読=\(omitted) bytes ---\n\(text)"
             }.joined(separator: "\n")
+            let more = result.objectValue?["continuation"]?.stringValue != nil
+            return body + (more ? "\n続きは同じtargetsとcontinuationで取得できます。" : "")
         }
         if name == "search_context", let matches = result.objectValue?["matches"]?.arrayValue {
-            return matches.compactMap { value in
+            let blocks = result.objectValue?["contextBlocks"]?.arrayValue ?? []
+            let blockIDs = Set(blocks.compactMap { $0.objectValue?["id"]?.stringValue })
+            let context = blocks.compactMap { value -> String? in
+                guard let block = value.objectValue, let path = block["path"]?.stringValue,
+                      let text = block["text"]?.stringValue else { return nil }
+                return "// --- \(path):\(block["startLine"]?.intValue ?? 1)-\(block["endLine"]?.intValue ?? 1) ---\n\(text)"
+            }
+            let lines = matches.compactMap { value -> String? in
                 guard let object = value.objectValue,
                       let path = object["path"]?.stringValue,
                       let line = object["line"]?.intValue,
                       let text = object["text"]?.stringValue else { return nil }
+                if let id = object["contextBlockID"]?.stringValue, blockIDs.contains(id) { return nil }
                 return "\(path):\(line): \(text)"
-            }.joined(separator: "\n")
+            }
+            let omitted = result.objectValue?["omittedMatches"]?.intValue ?? 0
+            return (context + lines).joined(separator: "\n") + "\n未返却=\(omitted)件。追加の行はread_contextのpath・start_line・end_lineで取得できます。"
         }
         if name == "apply_change_set", let object = result.objectValue {
             let status = object["status"]?.stringValue ?? "unknown"

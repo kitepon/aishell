@@ -65,6 +65,34 @@ For lexical `search_context`, omitting `ranking` is valid: requests without a wo
 
 `AISHELL_TOOL_PROFILE=factory` is a separate, one-tool surface for factory reporters rather than development work. It exposes only `factory_diagnostics`, a path- and activity-free native readiness report.
 
+## 調査対象を絞って読む
+
+`workspace_snapshot`の`context_paths`に注目するファイルを指定すると、その本文を共有予算内で抜粋する。
+省略時は案内・構成・実装を優先して最大8件を選び、隠し管理ファイルとarchiveは既定の本文候補から外す。
+ファイル一覧や明示読取りは維持する。調査意図を推測する機能は持たない。
+
+```json
+{"path":"/absolute/repo","context_paths":["bin/setup-windows-native-factory.ps1","bin/agents-update.sh"],"context_budget":6500}
+```
+
+`read_context`は予算を指定対象へ配り、小さい対象の余りを再配分する。各抜粋はSHA、行番号、byte位置、
+残りの未読byte数を持つ。続きは同じ`targets`と返却された`continuation`で読み、対象が変わった場合は
+`CONTENT_CHANGED`で止まる。従来のパス文字列に加え、行範囲と期待SHAを指定できる。
+
+```json
+{"targets":["/absolute/repo/PLAN.md",{"path":"/absolute/repo/bin/agents-update.sh","start_line":80,"end_line":110}],"byte_budget":15000}
+```
+
+検索は`queries`に`before_lines`・`after_lines`を付けると、周辺コードを本文に返す。
+明示したrankingを保ち、同じ優先度のquery・ファイルを交互に表示する。一致が多い広いregexでは、
+欲しい実装が最初のページに入る保証はない。異なる関心はqueryを分けると見渡しやすい。
+返却されたpath・行番号を`read_context`へ渡せば、必要な範囲を広げられる。
+
+上限、未返却件数、continuation、SHA/cursorは維持する。readの`returnedBytes`は本文byte数、検索は
+一致・周辺コードrecordのbyte数を表し、MCP envelope全体の大きさではない。単一recordが検索予算を
+超える場合は明示descriptorとartifactへ分ける。完全証拠は返却期限まで保持する。
+本文はMCPの`content`に一度だけ置き、`structuredContent`は位置・SHA・cursor等を保持する。
+
 ## Why AIShell
 
 Typical stateless integrations repeatedly ask the model to rediscover workspace state and interpret command output. AIShell keeps the stateful, OS-facing part below the model so later turns can ask for deltas and primary evidence instead of rescanning everything.

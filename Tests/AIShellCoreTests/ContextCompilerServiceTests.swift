@@ -2,6 +2,36 @@ import XCTest
 @testable import AIShellCore
 
 final class ContextCompilerServiceTests: XCTestCase {
+    func testFairContinuationReassemblesFilesAndBindsCompletedTargets() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.cleanup() }
+        let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let contents = ["small.txt": "ok\n", "large.txt": String(repeating: "日本語\n", count: 20)]
+        for (path, text) in contents { try text.write(to: root.appendingPathComponent(path), atomically: false, encoding: .utf8) }
+        let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("state"))
+        await store.setWorkingDirectoryForTesting(root)
+        let service = ContextCompilerService(runtimeStore: store)
+        let paths = ["small.txt", "large.txt"]
+        let first = try await service.readContext(targets: paths, byteBudget: 30)
+        var received = Dictionary(uniqueKeysWithValues: first.chunks.map { ($0.path, $0.text) })
+        var continuation = first.continuation
+        while let token = continuation {
+            let page = try await service.readContext(targets: paths, byteBudget: 30, continuation: token)
+            XCTAssertLessThanOrEqual(page.returnedBytes, 30)
+            for chunk in page.chunks { received[chunk.path, default: ""] += chunk.text }
+            continuation = page.continuation
+        }
+        XCTAssertEqual(received, contents)
+        try "changed\n".write(to: root.appendingPathComponent("small.txt"), atomically: false, encoding: .utf8)
+        do {
+            _ = try await service.readContext(targets: paths, byteBudget: 30, continuation: first.continuation)
+            XCTFail("完了済み対象の変更も同じ読取りの継続では拒否する")
+        } catch let error as AIShellError {
+            guard case .contentChanged = error else { return XCTFail("予期しないエラー: \(error)") }
+        }
+    }
+
     func testWorkspaceGitDiffContinuationSurvivesUnchangedSnapshotGeneration() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
@@ -262,7 +292,7 @@ final class ContextCompilerServiceTests: XCTestCase {
             targets: ["First.swift", "Second.swift"],
             byteBudget: 20
         )
-        XCTAssertEqual(first.chunks.count, 1)
+        XCTAssertEqual(first.chunks.count, 2)
         XCTAssertNotNil(first.continuation)
         XCTAssertGreaterThan(first.omittedBytes, 0)
         XCTAssertFalse(first.chunks[0].sha256.isEmpty)
@@ -272,7 +302,7 @@ final class ContextCompilerServiceTests: XCTestCase {
             byteBudget: 64,
             continuation: first.continuation
         )
-        XCTAssertEqual(second.chunks.first?.path, "Second.swift")
+        XCTAssertEqual(second.chunks.map(\.path), ["First.swift", "Second.swift"])
         XCTAssertNil(second.continuation)
     }
 

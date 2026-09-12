@@ -915,13 +915,15 @@ public actor DevelopmentRuntimeService {
         path: String? = nil,
         sinceCursor: String? = nil,
         entryLimit: Int = 500,
-        contextBudget: Int = 16_384
+        contextBudget: Int = 16_384,
+        contextPaths: [String]? = nil
     ) async throws -> WorkspaceSnapshot {
         try await workspaceRuntime.snapshot(
             path: path,
             sinceCursor: sinceCursor,
             entryLimit: entryLimit,
-            contextBudget: contextBudget
+            contextBudget: contextBudget,
+            contextPaths: contextPaths
         )
     }
 
@@ -930,6 +932,7 @@ public actor DevelopmentRuntimeService {
         sinceCursor: String? = nil,
         entryLimit: Int = 500,
         contextBudget: Int = 16_384,
+        contextPaths: [String]? = nil,
         gitDiffRequest: GitDiffContextRequest? = nil,
         projectProfileRequest: ProjectProfileProjectionRequest? = nil
     ) async throws -> WorkspaceSnapshotV2Result {
@@ -938,6 +941,7 @@ public actor DevelopmentRuntimeService {
             sinceCursor: sinceCursor,
             entryLimit: entryLimit,
             contextBudget: contextBudget,
+            contextPaths: contextPaths,
             gitDiffRequest: gitDiffRequest,
             projectProfileRequest: projectProfileRequest
         )
@@ -953,6 +957,12 @@ public actor DevelopmentRuntimeService {
             byteBudget: byteBudget,
             continuation: continuation
         )
+    }
+
+    public func readContext(
+        selections: [ReadContextTarget], byteBudget: Int = 65_536, continuation: String? = nil
+    ) async throws -> ReadContextResult {
+        try await contextCompiler.readContext(selections: selections, byteBudget: byteBudget, continuation: continuation)
     }
 
     public func searchContext(

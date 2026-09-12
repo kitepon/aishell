@@ -1,0 +1,44 @@
+{
+  "fixtureSHA256": "8f6b49a0178a49a7a974e0a6009d0befd5ab5cf012abc97e1301572a2708fd4d",
+  "budgets": {
+    "read": 15000,
+    "search": 14000
+  },
+  "measurements": {
+    "read": {
+      "calls": 5,
+      "contentBytes": 65658,
+      "structuredBytes": 1909,
+      "responseBytes": 67812,
+      "requiredBytes": 4540,
+      "coveredTargets": 3
+    },
+    "broadSearch": {
+      "calls": 1,
+      "contentBytes": 1566,
+      "structuredBytes": 11129,
+      "responseBytes": 12744,
+      "returnedMatches": 15,
+      "omittedMatches": 50,
+      "contextBlocks": 7
+    },
+    "search": {
+      "calls": 10,
+      "contentBytes": 57482,
+      "structuredBytes": 23199,
+      "responseBytes": 81171,
+      "requiredBytes": 954,
+      "coveredQueries": 2
+    }
+  },
+  "version": "0.7.4",
+  "snapshot": {
+    "responseBytes": 17952,
+    "paths": [
+      "CLAUDE.md",
+      "package.json",
+      "tests/factory-reporter/v2-contract.test.mjs",
+      ".codex-sidecar.yml"
+    ]
+  }
+}

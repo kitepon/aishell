@@ -449,6 +449,32 @@ public actor SearchContextService {
         deduplicated.sort { lhs, rhs in
             compare(lhs, rhs, ranking: request.ranking, environment: environment)
         }
+        // 明示rankingの優先度を保ち、同じ優先度ではqueryとファイルを交互に返す。
+        let ranked = Dictionary(grouping: deduplicated) { candidate in
+            request.ranking.map { criterion in
+                switch criterion {
+                case .changed: return environment.changedPaths.contains(candidate.path) ? "0" : "1"
+                case .tests: return environment.testPaths.contains(candidate.path) ? "0" : "1"
+                }
+            }.joined()
+        }
+        deduplicated = ranked.keys.sorted().flatMap { rank in
+            let groups = Dictionary(grouping: ranked[rank]!) { candidate in
+                "\(candidate.queryIndices.min() ?? 0)\u{0}\(candidate.path)"
+            }
+            let keys = groups.keys.sorted {
+                let left = groups[$0]!.first!.queryIndices.min() ?? 0
+                let right = groups[$1]!.first!.queryIndices.min() ?? 0
+                return left == right ? Self.utf8Less($0, $1) : left < right
+            }
+            var ordered: [Candidate] = []
+            for offset in 0..<(groups.values.map(\.count).max() ?? 0) {
+                for key in keys {
+                    if let values = groups[key], offset < values.count { ordered.append(values[offset]) }
+                }
+            }
+            return ordered
+        }
         for candidate in deduplicated {
             let current = try inspectRegularFile(candidate.fileURL)
             guard current.identity == candidate.fileIdentity,

@@ -306,6 +306,23 @@ public struct ContextChunk: Codable, Equatable, Sendable {
     public let sizeBytes: Int
     public let returnedBytes: Int
     public let omittedBytes: Int
+    public var startLine: Int? = nil
+    public var endLine: Int? = nil
+    public var offsetBytes: Int? = nil
+}
+
+public struct ReadContextTarget: Codable, Sendable {
+    public let path: String
+    public var startLine: Int? = nil
+    public var endLine: Int? = nil
+    public var expectedSHA256: String? = nil
+
+    public init(path: String, startLine: Int? = nil, endLine: Int? = nil, expectedSHA256: String? = nil) {
+        self.path = path
+        self.startLine = startLine
+        self.endLine = endLine
+        self.expectedSHA256 = expectedSHA256
+    }
 }
 
 public struct ReadContextResult: Codable, Equatable, Sendable {

@@ -1,0 +1,49 @@
+{
+  "fixtureSHA256": "8f6b49a0178a49a7a974e0a6009d0befd5ab5cf012abc97e1301572a2708fd4d",
+  "budgets": {
+    "read": 15000,
+    "search": 14000
+  },
+  "measurements": {
+    "read": {
+      "calls": 1,
+      "contentBytes": 15646,
+      "structuredBytes": 1120,
+      "responseBytes": 16815,
+      "requiredBytes": 4540,
+      "coveredTargets": 3
+    },
+    "broadSearch": {
+      "calls": 1,
+      "contentBytes": 4543,
+      "structuredBytes": 10555,
+      "responseBytes": 15147,
+      "returnedMatches": 13,
+      "omittedMatches": 52,
+      "contextBlocks": 8
+    },
+    "search": {
+      "calls": 1,
+      "contentBytes": 1228,
+      "structuredBytes": 3892,
+      "responseBytes": 5169,
+      "requiredBytes": 954,
+      "coveredQueries": 2
+    }
+  },
+  "version": "0.7.4",
+  "snapshot": {
+    "responseBytes": 18572,
+    "paths": [
+      "AGENTS.md",
+      "CLAUDE.md",
+      "claude/CLAUDE.md",
+      "codex/AGENTS.md",
+      "cursor/AGENTS.md",
+      "grok/AGENTS.md",
+      "rag/INDEX.md",
+      "package.json"
+    ]
+  },
+  "build": "0.7.5向け作業ツリー。計測時のserverInfo.versionは0.7.4"
+}

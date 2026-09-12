@@ -401,6 +401,7 @@ enum ToolCatalog {
                 "since_cursor": string("前回cursor。省略時は明示的なfull snapshot"),
                 "entry_limit": integer("最大entry/change件数。1〜5000、既定500", minimum: 1, maximum: 5_000),
                 "context_budget": integer("guidance・manifest・test・小規模workspace本文、またはdelta本文の共有byte上限。0〜65536、既定16384", minimum: 0, maximum: 65_536),
+                "context_paths": stringArray("埋込contextで読みたいファイル。workspace相対または絶対パス。省略時は案内・構成・実装を優先し最大8件の抜粋。行指定はread_contextで行う。"),
                 "git_diff": .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -448,7 +449,18 @@ enum ToolCatalog {
         tool(
             "read_context", "複数fileを共有budgetで読取", "複数targetを一つのbyte budgetで読み、SHA、omitted bytes、明示continuationを返します。巨大fileや後続fileを暗黙切捨てしません。",
             properties: [
-                "targets": stringArray("相対または絶対ファイルパスの配列"),
+                "targets": .object([
+                    "type": .string("array"),
+                    "description": .string("パス文字列、またはpath・start_line・end_line・expected_sha256を持つobjectの配列。予算を対象間で共有し、行番号は1始まり。"),
+                    "items": .object(["anyOf": .array([
+                        type("string"),
+                        .object(["type": .string("object"), "required": .array([.string("path")]),
+                                 "properties": .object([
+                                    "path": type("string"), "start_line": integer("開始行", minimum: 1),
+                                    "end_line": integer("終了行（含む）", minimum: 1), "expected_sha256": type("string")
+                                 ]), "additionalProperties": .bool(false)])
+                    ])])
+                ]),
                 "byte_budget": integer("全target共有の返却上限byte。1〜1048576、既定65536", minimum: 1, maximum: 1_048_576),
                 "continuation": string("前回結果のcontinuation")
             ],

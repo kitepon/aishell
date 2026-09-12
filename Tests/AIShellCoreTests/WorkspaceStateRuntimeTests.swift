@@ -20,10 +20,14 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
             path: "build", identity: "build", isDirectory: true,
             sizeBytes: 0, modifiedAt: nil, sha256: nil
         )
+        for path in [".codegraph/.gitignore", "docs/archive/old.test.js"] {
+            entries[path] = WorkspaceEntry(path: path, identity: path, isDirectory: false,
+                                           sizeBytes: 1, modifiedAt: nil, sha256: nil)
+        }
 
         XCTAssertEqual(
             WorkspaceStateRuntime.prioritizedContextEntries(in: entries).map(\.path),
-            ["docs/CLAUDE.md", "Package.swift", "Tests/AppTests.swift", "Sources/App.swift"]
+            ["docs/CLAUDE.md", "Package.swift", "Sources/App.swift", "Tests/AppTests.swift"]
         )
 
         var priorityCalls = 0

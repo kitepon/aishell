@@ -104,7 +104,8 @@ public actor WorkspaceStateRuntime {
         path: String? = nil,
         sinceCursor: String? = nil,
         entryLimit: Int = 500,
-        contextBudget: Int = 16_384
+        contextBudget: Int = 16_384,
+        contextPaths: [String]? = nil
     ) async throws -> WorkspaceSnapshot {
         let resolver = try await activeResolver()
         let root = try resolver.resolveExisting(path)
@@ -228,7 +229,7 @@ public actor WorkspaceStateRuntime {
                 gitStatus: git.lines,
                 context: try contextChunks(
                     root: root,
-                    candidates: changedEntries,
+                    candidates: try contextCandidates(entries: state.entries, root: root, paths: contextPaths, defaults: changedEntries),
                     budget: contextBudget
                 )
             )
@@ -284,7 +285,7 @@ public actor WorkspaceStateRuntime {
             gitStatus: git.lines,
             context: contextBudget > 0 ? try contextChunks(
                 root: root,
-                candidates: Self.prioritizedContextEntries(in: state.entries),
+                candidates: try contextCandidates(entries: state.entries, root: root, paths: contextPaths, defaults: Self.prioritizedContextEntries(in: state.entries)),
                 budget: contextBudget
             ) : []
         )
@@ -1313,7 +1314,7 @@ public actor WorkspaceStateRuntime {
         in entries: [String: WorkspaceEntry],
         priority: (String) -> Int = WorkspaceStateRuntime.contextPriority
     ) -> [WorkspaceEntry] {
-        entries.values.filter { !$0.isDirectory }
+        entries.values.filter { !$0.isDirectory && !$0.path.split(separator: "/").contains(where: { $0.hasPrefix(".") || $0 == "archive" }) }
             .map { (entry: $0, priority: priority($0.path)) }
             .sorted {
                 if $0.priority != $1.priority { return $0.priority < $1.priority }
@@ -1324,10 +1325,10 @@ public actor WorkspaceStateRuntime {
 
     private static func contextPriority(_ path: String) -> Int {
         let name = lastPathComponent(of: path)
+        if path.split(separator: "/").contains(where: { ["Tests", "tests", "test", "fixtures", "benchmarks"].contains(String($0)) }) || path.contains(".test.") { return 4 }
         if name == "AGENTS.md" || name == "CLAUDE.md" || path == "rag/INDEX.md" { return 0 }
         if ["Package.swift", "package.json", "Cargo.toml", "pyproject.toml", "go.mod"].contains(name) { return 1 }
-        if path.contains("/Tests/") || path.hasPrefix("Tests/") || path.contains(".test.") { return 2 }
-        return 3
+        return 2
     }
 
     private static func lastPathComponent(of path: String) -> Substring {
@@ -1335,29 +1336,41 @@ public actor WorkspaceStateRuntime {
         return path[path.index(after: separator)...]
     }
 
-    private func contextChunks(
-        root: URL,
-        candidates: [WorkspaceEntry],
-        budget: Int
-    ) throws -> [ContextChunk] {
+    private func contextCandidates(
+        entries: [String: WorkspaceEntry], root: URL, paths: [String]?, defaults: [WorkspaceEntry]
+    ) throws -> [WorkspaceEntry] {
+        guard let paths else { return Array(defaults.filter { !$0.isDirectory && $0.sha256 != nil }.prefix(8)) }
+        var result: [WorkspaceEntry] = []
+        for path in paths {
+            let url = URL(fileURLWithPath: path, relativeTo: root).standardizedFileURL
+            guard url.path.hasPrefix(root.path + "/") else { throw AIShellError.invalidPath(path) }
+            let relative = String(url.path.dropFirst(root.path.count + 1))
+            guard let entry = entries[relative], !entry.isDirectory else { throw AIShellError.invalidPath(path) }
+            if !result.contains(where: { $0.path == entry.path }) { result.append(entry) }
+        }
+        return result
+    }
+
+    private func contextChunks(root: URL, candidates: [WorkspaceEntry], budget: Int) throws -> [ContextChunk] {
         let limit = min(max(0, budget), 65_536)
         guard limit > 0 else { return [] }
         var remaining = limit
         var chunks: [ContextChunk] = []
-        for entry in candidates where remaining > 0 && entry.sizeBytes <= 65_536 {
+        for (index, entry) in candidates.enumerated() where remaining > 0 {
             let url = root.appendingPathComponent(entry.path)
-            guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
-                  String(data: data, encoding: .utf8) != nil else { continue }
-            guard data.count <= remaining else { continue }
+            let data = try Data(contentsOf: url, options: .mappedIfSafe)
+            guard String(data: data, encoding: .utf8) != nil else { continue }
+            let sha = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            if let expected = entry.sha256, expected != sha { throw AIShellError.contentChanged(url.path) }
+            var count = min(data.count, max(1, remaining / (candidates.count - index)))
+            while count > 0 && String(data: data.prefix(count), encoding: .utf8) == nil { count -= 1 }
+            let selected = data.prefix(count)
             chunks.append(ContextChunk(
-                path: entry.path,
-                text: String(decoding: data, as: UTF8.self),
-                sha256: entry.sha256 ?? SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(),
-                sizeBytes: data.count,
-                returnedBytes: data.count,
-                omittedBytes: 0
+                path: entry.path, text: String(decoding: selected, as: UTF8.self), sha256: sha,
+                sizeBytes: data.count, returnedBytes: count, omittedBytes: data.count - count,
+                startLine: 1, endLine: 1 + selected.dropLast().filter { $0 == 10 }.count, offsetBytes: 0
             ))
-            remaining -= data.count
+            remaining -= count
         }
         return chunks
     }
