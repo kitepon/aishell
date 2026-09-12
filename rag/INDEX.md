@@ -12,7 +12,7 @@ Keychainに関する資料は旧実装の履歴。現行版はKeychainを使わ�
 - [AIShellをCodexの別タスクへ公開する](codex-mcp-registration.md) — npm版stdio MCP登録、expanded-v1 11 tool、typed startup failure、フォルダ登録廃止後のパス解決、lane分離、0.4.8〜0.4.11のClaude互換・検索既定／性能／file scope実測（2026-09-06更新、確度: 高）
 - [AIShell開発利用adoption監査](development-adoption-audit-2026-08-04.md) — Claude schema拒否、Aiterm MCP隔離、許可root、Codex profile drift、検索既定／file scope、全体routing、狭い検索costを全session・全project横断で分離し、修理境界を固定（2026-08-04、確度: 中〜高）
 - [副作用型toolは結果状態を返す](side-effect-tool-result-state.md) — 書き換え系toolが状態語だけを返すと呼び出し側が結果を復元できず報告が劣化する。代表ベンチで実測した失敗と、結果状態を返す設計への修正（apply_change_set 0.3.5・run_observe 0.3.6）（2026-07-24、確度: 高）
-- [AIShell npm配布判断](npm-distribution.md) — native MCPと明示的app launcherによる副作用なしのglobal install、0.4.5でpostinstallを撤回。npmの2時間session、公開時2FA、0.5.0公開・導入の実測（2026-09-06、確度: 高）
+- [AIShell npm配布判断](npm-distribution.md) — install lifecycle不採用の実測、公開時の2FA、手操作を省くTrusted Publishingの要件（2026-09-12更新、確度: 高）
 - [起動中のmacOS appをupgradeで差し替えると無言で壊れる](macos-app-upgrade-window-staleness.md) — npmのrename退避で消えたbundleを掴んだ窓はNSOpenPanelだけ無反応になる。実体identityによる3状態検知と、install側警告を正にしない理由（2026-07-25、確度: 高）
 - [FSEvents永続checkpointの連続性](fsevents-persistent-checkpoint-continuity.md) — volume UUID、event ID巻戻り、drop、scan中eventをfail-closedなwarm restore契約へ反映（2026-07-21、確度: 高）
 - [FSEvents device timestamp boundaryの実測制約](fsevents-device-boundary-observation.md) — timestamp検索の6秒超遅延と、UUID＋processed callback IDを永続cursorに使う判断（2026-07-21、確度: 高）

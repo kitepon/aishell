@@ -1,10 +1,12 @@
 # AIShell npm配布判断
 
 - 出典: [[raw/npm-publishing-2026]]
-- 検証日: 2026-07-19、2026-09-06追記
+- 検証日: 2026-07-19、2026-09-06、2026-09-12追記
 - 確度: 高（公式仕様 + registry実測）
 
-## 採用構成
+## 初回採用構成の履歴
+
+管理UIとlauncherを含む以下の構成は過去の記録。現行の導入手順は[製品契約](../docs/setup.md)を参照する。
 
 - 公開名: `@quolu/aishell`
 - 対応: macOS arm64、macOS 15以降
@@ -44,6 +46,15 @@ upgradeされた窓の検知は、app側（`InstallationIntegrity`）だけを�
 - 0.5.0公開では保存認証がE401になり、ログイン完了後の公開にも別のWebAuthn認証が要求された。対話PTYから`--browser=false`で新しい認証URLを取得し、Chromeで認証して公開が成功した。出力リダイレクト時はEOTPで終了した。
 - 信頼済み公開はOIDCでCIのidentityを検証し、公開用の長期tokenを不要にする方式。今回の公開は手動認証で実施した。
 - 公開手順は[README](../README.md)、0.5.0の公開版検証は[ADR 0030](../docs/adr/0030-folder-registration-removal.md)を参照する。
+
+## 手作業の公開認証を省く方法（2026-09-12確認）
+
+- 出典: [npm Trusted Publishing公式仕様](https://docs.npmjs.com/trusted-publishers/)、[[raw/npm-trusted-publishing-20260912]]。
+- npmに特定repositoryの公開workflowを登録すると、そのworkflowはOIDCによって自動認証できる。直接公開を許可したジョブでは、毎回のTouch ID操作と長期npm tokenを必要としない。
+- GitHub ActionsはGitHub管理のrunnerを使う必要がある。既存のself-hosted runnerをそのまま公開元にはできない。
+- 2026-09-03以降の新規設定ではstage公開が既定になる。毎回の承認を必要としない直接公開には、登録時に `npm publish` を許可する必要がある。
+- 初回のnpm設定とworkflow追加は必要。この確認時点では提案だけで、AIShellの公開方式は変更していない。
+- 0.7.2公開ではログインが有効でもWebAuthn認証が一度要求された。公開後のglobal install、4つのAIのsetup確認、編集・削除・工場診断では認証を要求されなかった。
 
 ## 初回配布時の実測（0.3.1の履歴）
 
