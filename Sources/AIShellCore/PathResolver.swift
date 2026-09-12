@@ -1,31 +1,65 @@
-import Darwin
 import Foundation
 
 public struct PathResolver: Sendable {
     public let rootURL: URL
+    public var namespaceRoots: [URL] { [URL(fileURLWithPath: "/", isDirectory: true)] }
 
-    public init(baseDirectory: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)) {
-        rootURL = baseDirectory
+    public init(baseDirectory: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)) {
+        rootURL = baseDirectory.standardizedFileURL.resolvingSymlinksInPath()
     }
 
     public func resolveExisting(_ path: String?) throws -> URL {
-        let url = try resolve(path)
-        var status = stat()
-        // リンク自身を移動・改名できるよう、リンク先へ置き換えない。
-        guard lstat(url.path, &status) == 0 else {
-            if errno == ENOENT { throw AIShellError.itemNotFound(url.path) }
-            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        let candidate = rawURL(for: path)
+        try ReservedNamespacePolicy.requirePublicPath(candidate, under: namespaceRoots)
+        guard FileManager.default.fileExists(atPath: candidate.path) else {
+            throw AIShellError.itemNotFound(candidate.path)
         }
-        return url
+
+        let resolved = candidate.resolvingSymlinksInPath().standardizedFileURL
+        try ReservedNamespacePolicy.requirePublicPath(resolved, under: namespaceRoots)
+        return resolved
     }
 
     public func resolveDestination(_ path: String) throws -> URL {
-        try resolve(path)
+        guard !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AIShellError.invalidPath(path)
+        }
+
+        let candidate = rawURL(for: path)
+        try ReservedNamespacePolicy.requirePublicPath(candidate, under: namespaceRoots)
+        var ancestor = candidate
+        var missingComponents: [String] = []
+
+        while !FileManager.default.fileExists(atPath: ancestor.path) {
+            let parent = ancestor.deletingLastPathComponent()
+            guard parent.path != ancestor.path else {
+                throw AIShellError.invalidPath(path)
+            }
+            missingComponents.insert(ancestor.lastPathComponent, at: 0)
+            ancestor = parent
+        }
+
+        var resolved = ancestor.resolvingSymlinksInPath().standardizedFileURL
+        try ReservedNamespacePolicy.requirePublicPath(resolved, under: namespaceRoots)
+        for component in missingComponents {
+            resolved.appendPathComponent(component)
+        }
+        resolved = resolved.standardizedFileURL
+
+        try ReservedNamespacePolicy.requirePublicPath(resolved, under: namespaceRoots)
+        return resolved
     }
 
-    private func resolve(_ path: String?) throws -> URL {
-        guard let path else { return rootURL }
-        guard !path.isEmpty, !path.contains("\0") else { throw AIShellError.invalidPath(path) }
-        return URL(fileURLWithPath: path, relativeTo: rootURL).absoluteURL
+    private func rawURL(for path: String?) -> URL {
+        guard let path, !path.isEmpty else {
+            return rootURL
+        }
+
+        if path.hasPrefix("/") {
+            return URL(fileURLWithPath: path).standardizedFileURL
+        }
+
+        return rootURL.appendingPathComponent(path).standardizedFileURL
     }
+
 }

@@ -2,7 +2,36 @@
 set -euo pipefail
 
 swift --version
+xcodebuild -version
 node --version
 npm --version
-npm test
-npm run test:package
+rg --version
+
+task_login_keychain="$HOME/Library/Keychains/login.keychain-db"
+task_keychain_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+task_keychain_dir="$(mktemp -d "$task_keychain_root/aishell-ci-keychain.XXXXXX")"
+task_keychain_path="$task_keychain_dir/ci.keychain-db"
+
+task_restore_keychain() {
+  local task_status=$?
+  trap - EXIT
+  security default-keychain -d user -s "$task_login_keychain" || task_status=1
+  security list-keychains -d user -s "$task_login_keychain" || task_status=1
+  security delete-keychain "$task_keychain_path" || task_status=1
+  rmdir "$task_keychain_dir" || task_status=1
+  exit "$task_status"
+}
+trap task_restore_keychain EXIT
+
+test -f "$task_login_keychain"
+security create-keychain -p '' "$task_keychain_path"
+security set-keychain-settings -lut 1200 "$task_keychain_path"
+security unlock-keychain -p '' "$task_keychain_path"
+security list-keychains -d user -s "$task_keychain_path" "$task_login_keychain"
+security default-keychain -d user -s "$task_keychain_path"
+
+swift test
+node --test scripts/setup/*.test.mjs scripts/verify-release-commit.test.mjs
+node --test scripts/repository-contract.test.mjs
+scripts/package-app.sh release
+npm pack --dry-run

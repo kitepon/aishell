@@ -1,21 +1,41 @@
-# 文書索引
+# AIShell documentation map
 
-現行のAIShellは、OS操作の直接実行、結果・エラーの返却、使用ログの保存を行います。
+このファイルはAIShell文書の唯一の現役索引である。AIShellは単独でinstall、設定、
+状態管理、診断、復旧、更新、releaseでき、その契約は本repository内だけで完結する。
+dotagentsは公開contractを使って製品横断wireと互換性を統合するが、AIShellの内部状態や
+運用判断を所有・制御しない。
 
 ## 現役文書
 
-- [README](../README.md): 公開概要、直接操作、導入・更新・公開手順。
-- [AGENTS.md](../AGENTS.md): 製品の責務と開発規約。
-- [CONTRIBUTING.md](../CONTRIBUTING.md): 変更の作法。
-- [SECURITY.md](../SECURITY.md): 操作権限と脆弱性報告。
-- [setup.md](setup.md): AI登録と実操作確認。
-- [RAG索引](../rag/INDEX.md): 調査履歴。
+- [../README.md](../README.md): 公開概要、install/update、接続、通常運用、制限、release入口。
+- [../README.ja.md](../README.ja.md): 日本語版の公開概要と運用入口。
+- [../AGENTS.md](../AGENTS.md): 製品目的、設計境界、開発・文書規約。
+- [../CONTRIBUTING.md](../CONTRIBUTING.md): 変更提案、開発確認、文書更新の手順。
+- [../SECURITY.md](../SECURITY.md): セキュリティ報告と操作境界。
+- [../rag/INDEX.md](../rag/INDEX.md): 外部調査と実測の索引。
+- [adr/0030-folder-registration-removal.md](adr/0030-folder-registration-removal.md): フォルダ登録廃止と旧設計資料の適用範囲。
+- [adr/0031-standalone-setup.md](adr/0031-standalone-setup.md): 製品単体setupの所有境界と別ベンダー反証の裁定。
+- [factory-diagnostics.md](factory-diagnostics.md): 製品所有のnative factory diagnostics contract。
+- [setup.md](setup.md): 製品単体の準備、AI登録、読戻し、MCP実操作と対応範囲。
+- [adr/0032-standalone-setup-acceptance.md](adr/0032-standalone-setup-acceptance.md): 製品単体setupの公開版・Mac実機受入。
+- [adr/](adr/): 恒久的な設計判断と受入記録。
+- [evidence/](evidence/): 検証証跡。通常の実装・運用では読み込まず、判断根拠の追跡時だけ参照する。
 
-## 過去の記録
+## 履歴
 
-- [archive](archive/): 完了した計画と廃止した契約。
-- [releases](archive/releases/): release作業の記録。公開版の外部正本はGitHub Releases。
-- [adr](adr/): 当時の設計判断。
-- [evidence](evidence/): 当時の検証証跡。
+- [archive/](archive/): 完了planと置換済み設計資料。
+- [archive/keychain-noninteractive-plan.md](archive/keychain-noninteractive-plan.md): atomic編集のKeychain待ち・状態保存修理と公開後受入の完了記録。
+- [archive/standalone-setup-plan.md](archive/standalone-setup-plan.md): 製品単体setupの実装・公開・実機受入が完了した計画。
+- [archive/development-efficiency-plan.md](archive/development-efficiency-plan.md): 全Phase受入済みの能力拡張campaign履歴。現行のnorth starと設計境界は`AGENTS.md`へ統合済み。
+- [archive/releases/](archive/releases/): 過去のrelease notes。公開済みversionの外部正本はGitHub Releasesである。
 
-2026-09-12の製品簡素化により、過去資料の管理UI、認証、編集取引、監視、cache、artifact、診断profileは廃止しました。履歴の設計を現行の利用手順や要件として扱いません。現在の責務はAGENTS.mdとREADMEを正とします。
+archiveとevidenceは当時の説明・実測であり、現行挙動の正本ではない。許可rootに関する旧記録は[ADR 0030](adr/0030-folder-registration-removal.md)で置き換えられた。数値・エラー・当時の判断は履歴として保持する。
+
+## 文書の寿命
+
+- 現役文書はこの索引に列挙し、1つの目的を1文書が所有する。
+- 同じ意味の現役文書は、対象contractに最も近い文書へmergeして全参照を更新する。
+- 完了plan、release notes、handoff、置換済み設計は`archive/`へ移す。
+- ADRとevidenceは履歴として保持するが、現在の操作手順をそこへ置かない。
+- install、config、state/schema、migration、diagnostics、recovery、update、releaseは
+  AIShell自身が所有し、dotagentsには製品横断の接続情報だけを置く。

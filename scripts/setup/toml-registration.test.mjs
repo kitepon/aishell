@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parse } from 'smol-toml';
 import { replaceTOMLRegistration } from './toml-registration.mjs';
 
-const registration = { command: 'aishell-mcp', args: [], env: { KEEP: 'fixture' }, enabled: true };
+const registration = { command: 'aishell-mcp', args: [], env: { KEEP: 'fixture', AISHELL_CAPABILITY_SET: 'expanded-v1' }, enabled: true };
 for (const input of [
   '[mcp_servers.aishell]\ncommand="old"\n[mcp_servers.aishell.env]\nKEEP="fixture"\n',
   '[mcp_servers."aishell"]\ncommand="old"\nenv={KEEP="fixture"}\n',

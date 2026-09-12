@@ -23,7 +23,7 @@
 
 以前のADRにある許可rootの登録・選択・包含チェック・Git worktree自動許可、および設定rootを相対パスの基準とする記述を本決定で置き換える。特にADR 0028の「allowed rootは安全性の土台」という判断は撤回する。旧ADRのそれ以外の契約と当時の検証記録は保持する。
 
-公開操作は[README](../../README.md)、診断は[factory-diagnostics](../archive/factory-diagnostics.md)を参照する。
+公開操作は[README](../../README.md)、診断は[factory-diagnostics](../factory-diagnostics.md)を参照する。
 
 ## 公開・検証記録
 

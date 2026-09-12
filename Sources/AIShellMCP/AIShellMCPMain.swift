@@ -1,18 +1,40 @@
-import AIShellCore
 import Foundation
+import AIShellCore
 
 @main
 enum AIShellMCPMain {
     static func main() async {
-        let arguments = Array(CommandLine.arguments.dropFirst())
-        if arguments == ["--version"] {
-            print(AIShellProduct.version)
-            return
+        if CommandLine.arguments.count == 2,
+           ["--prepare-keychain", "--check-keychain"].contains(CommandLine.arguments[1]) {
+            do {
+                let result = try ChangeSetKeychainPreparation.run(baseDirectory: RuntimeStore().baseDirectory,
+                    allowInteraction: CommandLine.arguments[1] == "--prepare-keychain")
+                let data = try JSONEncoder().encode(result)
+                print(String(decoding: data, as: UTF8.self))
+                return
+            } catch {
+                let message = (error as? ApplyChangeSetError)?.message ?? error.localizedDescription
+                FileHandle.standardError.write(Data("KEYCHAIN_PREPARATION_FAILED: \(message)\n".utf8))
+                exit(1)
+            }
         }
-        guard arguments.isEmpty else {
-            FileHandle.standardError.write(Data("未対応の引数です。aishell-mcpは引数なし、または--versionで起動してください。\n".utf8))
-            exit(64)
+        if CommandLine.arguments.dropFirst() == ["--prepare-manager"] {
+            do {
+                guard let executable = Bundle.main.executableURL else {
+                    throw AIShellError.invalidPath("実行中のMCP helperを特定できません。")
+                }
+                let app = executable.resolvingSymlinksInPath()
+                    .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                let result = try await NativeApplicationService().prepareManagerApplication(at: app)
+                let data = try JSONEncoder().encode(result)
+                print(String(decoding: data, as: UTF8.self))
+                return
+            } catch {
+                FileHandle.standardError.write(Data("MANAGER_PREPARATION_FAILED: \(error.localizedDescription)\n".utf8))
+                exit(1)
+            }
         }
-        exit(await MCPServer().run())
+        let outcome = await MCPServer().run()
+        exit(outcome.exitCode)
     }
 }

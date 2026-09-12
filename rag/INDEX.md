@@ -1,7 +1,5 @@
 # RAG Index
 
-ここにある製品実装・配布・性能の記述は取得当時の履歴です。2026-09-12にUI、認証、編集取引、監視・cache・artifactを廃止しました。現行仕様は[README](../README.md)と[製品規約](../AGENTS.md)を参照してください。
-
 - [file-based Keychainの非対話操作](keychain-noninteractive.md) — 認証UI待ちの停止点、既存鍵を移行せず待機を禁止するAPI、ad-hoc更新時のidentityとsetupでの認証確認（2026-09-10、確度: 高）
 
 - [明示setupとAI設定の確認](standalone-setup-host-contracts.md) — Claude/Codex/Grokの専用home読戻し、CursorがCURSOR_HOMEを参照しない実測と公式設定場所（2026-09-10、確度: 高）

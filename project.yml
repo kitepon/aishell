@@ -1,0 +1,76 @@
+name: AIShell
+
+options:
+  bundleIdPrefix: dev.kite
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+
+targets:
+  AIShellCore:
+    type: framework
+    platform: macOS
+    sources:
+      - Sources/AIShellCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.kite.aishell.core
+        DEFINES_MODULE: YES
+
+  AIShell:
+    type: application
+    platform: macOS
+    sources:
+      - Sources/AIShellApp
+    dependencies:
+      - target: AIShellCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.kite.aishell
+        PRODUCT_NAME: AIShell
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: AIShell
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026 Kite"
+        ENABLE_APP_SANDBOX: NO
+
+  AIShellMCP:
+    type: tool
+    platform: macOS
+    sources:
+      - Sources/AIShellMCP
+    dependencies:
+      - target: AIShellCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.kite.aishell.mcp
+        PRODUCT_NAME: aishell-mcp
+
+  AIShellCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/AIShellCoreTests
+    dependencies:
+      - target: AIShellCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.kite.aishell.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  AIShell:
+    build:
+      targets:
+        AIShell: all
+        AIShellMCP: all
+        AIShellCoreTests: [test]
+    test:
+      targets:
+        - AIShellCoreTests
