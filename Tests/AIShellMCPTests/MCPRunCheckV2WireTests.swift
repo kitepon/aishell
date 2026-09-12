@@ -164,6 +164,36 @@ final class MCPRunCheckV2WireTests: XCTestCase {
         let terminal = try await managed.status(runHandle: handle)
         XCTAssertEqual(terminal.state, "passed")
 
+        let restartedServer = MCPServer(runtimeStore: fixture.store, capabilitySet: "expanded-v1")
+        for (identity, text) in [(try XCTUnwrap(terminal.stdoutArtifact), "wire one\nwire two\n"),
+                                  (try XCTUnwrap(terminal.stderrArtifact), "")] {
+            let read = await restartedServer.callTool(id: .number(40), params: .object([
+                "name": .string("artifact_read"),
+                "arguments": .object(["handle": .string(identity.handle), "byte_budget": .number(128)])
+            ]))
+            let result = try XCTUnwrap(read.result?.objectValue)
+            XCTAssertEqual(result["isError"], .bool(false), "\(result)")
+            let slice = try XCTUnwrap(result["structuredContent"]?.objectValue)
+            XCTAssertEqual(result["content"]?.arrayValue?.first?.objectValue?["text"], .string(text))
+            XCTAssertEqual(slice["totalBytes"], .number(Double(identity.sizeBytes)))
+            XCTAssertEqual(slice["sha256"], .string(identity.sha256))
+        }
+
+        // 旧版はartifact索引の期限を省略していた。runの保持契約から同じ期限で読める。
+        let index = fixture.store.baseDirectory.appendingPathComponent("managed-runs/artifacts/published")
+            .appendingPathComponent(terminal.runID.uuidString.lowercased()).appendingPathComponent("registry-index.json")
+        var oldIndex = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: index)) as? [String: Any])
+        XCTAssertNotNil(oldIndex.removeValue(forKey: "expiresAt"))
+        try JSONSerialization.data(withJSONObject: oldIndex, options: [.sortedKeys]).write(to: index)
+        let legacyRead = await restartedServer.callTool(id: .number(41), params: .object([
+            "name": .string("artifact_read"), "arguments": .object([
+                "handle": .string(try XCTUnwrap(terminal.stdoutArtifact).handle), "mode": .string("tail"),
+                "tail_lines": .number(1), "byte_budget": .number(128)
+            ])
+        ]))
+        XCTAssertEqual(legacyRead.result?.objectValue?["isError"], .bool(false))
+        XCTAssertEqual(legacyRead.result?.objectValue?["content"]?.arrayValue?.first?.objectValue?["text"], .string("wire two\n"))
+
         let search = await server.callTool(id: .number(4), params: .object([
             "name": .string("artifact_read"),
             "arguments": .object([

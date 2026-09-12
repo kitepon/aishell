@@ -2,6 +2,8 @@ import CryptoKit
 import Foundation
 
 public actor DevelopmentRuntimeService {
+    private let runtimeStore: RuntimeStore
+    private var managedArtifacts: ManagedRunArtifactStore?
     private let processes: NativeProcessService
     public nonisolated let evidenceStore: EvidenceStore
     public nonisolated let workspaceRuntime: WorkspaceStateRuntime
@@ -22,6 +24,7 @@ public actor DevelopmentRuntimeService {
         projectProfiles: ProjectProfileService? = nil,
         changeImpactService: ChangeImpactService? = nil
     ) {
+        self.runtimeStore = runtimeStore
         processes = NativeProcessService(store: runtimeStore)
         self.evidenceStore = evidenceStore ?? EvidenceStore(
             baseDirectory: runtimeStore.baseDirectory.appendingPathComponent("evidence", isDirectory: true)
@@ -901,7 +904,11 @@ public actor DevelopmentRuntimeService {
         mode: ArtifactReadMode = .range(offset: 0, length: 65_536),
         byteBudget: Int = 65_536
     ) async throws -> ArtifactSlice {
-        try await evidenceStore.read(handle: handle, mode: mode, byteBudget: byteBudget)
+        if handle.hasPrefix("run_") {
+            if managedArtifacts == nil { managedArtifacts = try ManagedRunArtifactStore(runtimeStore: runtimeStore) }
+            return try await managedArtifacts!.read(handle: handle, mode: mode, byteBudget: byteBudget)
+        }
+        return try await evidenceStore.read(handle: handle, mode: mode, byteBudget: byteBudget)
     }
 
     public func workspaceSnapshot(

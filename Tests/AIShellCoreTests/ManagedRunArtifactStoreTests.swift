@@ -80,6 +80,18 @@ final class ManagedRunArtifactStoreTests: XCTestCase {
         )
         let boundArtifacts = try await store.queryArtifacts(runID: runID, projectID: "project-a")
         XCTAssertEqual(boundArtifacts.first?.data, Data("bound\n".utf8))
+        let record = try await store.loadRecord(runID: runID)
+        let reopened = try ManagedRunArtifactStore(runtimeStore: fixture.runtimeStore)
+        let range = try await reopened.read(handle: record.stdout.handle, mode: .range(offset: 1, length: 5), byteBudget: 3)
+        XCTAssertEqual(range.text, "oun")
+        XCTAssertEqual(range.offset, 1)
+        XCTAssertEqual(range.totalBytes, 6)
+        XCTAssertEqual(range.omittedBytes, 3)
+        XCTAssertFalse(range.eof)
+        let tail = try await reopened.read(handle: record.stdout.handle, mode: .tail(lines: 1), byteBudget: 128)
+        XCTAssertEqual(tail.text, "bound\n")
+        let around = try await reopened.read(handle: record.stdout.handle, mode: .around(pattern: "bound", contextLines: 0), byteBudget: 128)
+        XCTAssertEqual(around.text, "bound\n")
         await assertManagedArtifactThrows(
             try await store.queryArtifacts(runID: runID, projectID: "project-b")
         ) {
@@ -108,6 +120,11 @@ final class ManagedRunArtifactStoreTests: XCTestCase {
             try await store.queryArtifacts(runID: expiredID, projectID: "project-a")
         ) {
             XCTAssertEqual($0 as? ManagedRunArtifactStoreError, .runExpired)
+        }
+        let expiredRecord = try await store.loadRecord(runID: expiredID)
+        await assertManagedArtifactThrows(try await reopened.read(handle: expiredRecord.stdout.handle,
+            mode: .range(offset: 0, length: 1), byteBudget: 1)) {
+            XCTAssertEqual($0 as? AIShellError, .handleExpired(expiredRecord.stdout.handle))
         }
     }
 

@@ -77,6 +77,18 @@ public actor ManagedProcessRegistry {
         runIDByClientKey = loaded.runIDByClientKey
     }
 
+    // 旧artifact索引が省略した期限を、run所有の保存済みretentionから復元する。
+    static func retainedArtifactExpiry(store: RuntimeStore, runID: UUID, requestDigest: String, finalizedAt: Date) throws -> Date {
+        let manifestURL = store.baseDirectory.appendingPathComponent("managed-runs/runs", isDirectory: true)
+            .appendingPathComponent(runID.uuidString.lowercased(), isDirectory: true).appendingPathComponent("manifest.json")
+        try requirePrivateRegularFile(manifestURL)
+        let manifest = try decoder.decode(RunManifest.self, from: Data(contentsOf: manifestURL))
+        guard manifest.schema == storageSchema, manifest.runID == runID,
+              manifest.requestDigest == requestDigest, manifest.retentionSeconds.isFinite,
+              manifest.retentionSeconds >= 0 else { throw ManagedProcessRegistryError.runStoreCorrupt("manifest binding") }
+        return finalizedAt.addingTimeInterval(manifest.retentionSeconds)
+    }
+
     /// 同じclient key + digestは既存runへ合流し、別digestではprocessを増やさず競合にする。
     public func start(
         clientRunKey: String,

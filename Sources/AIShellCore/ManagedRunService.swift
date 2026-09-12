@@ -373,6 +373,7 @@ public actor ManagedRunService {
         }
         if snapshot.state == .finalizing, snapshot.finalization == nil {
             let wire = try Self.loadRequest(paths.request)
+            let finalizedAt = (try await supervisor.terminal(runID: snapshot.runID))?.observedAt ?? Date()
             await artifacts.prepare(
                 runID: snapshot.runID,
                 requestDigest: wire.requestDigest,
@@ -381,7 +382,7 @@ public actor ManagedRunService {
                 arguments: wire.arguments,
                 workingDirectoryPath: wire.workingDirectoryPath,
                 environmentDigest: try Self.environmentDigest(wire.environment),
-                expiresAt: snapshot.expiresAt,
+                expiresAt: finalizedAt.addingTimeInterval(wire.retentionSeconds),
                 stdoutURL: paths.stdout,
                 stderrURL: paths.stderr,
                 diagnosticURL: paths.diagnostics
@@ -398,7 +399,7 @@ public actor ManagedRunService {
             )
             let bundle = try await artifacts.publishAtomically(
                 inspection: inspection, diagnostics: diagnostics,
-                finalizedAt: (try await supervisor.terminal(runID: snapshot.runID))?.observedAt ?? Date()
+                finalizedAt: finalizedAt
             )
             snapshot = try await registry.record(
                 runHandle: runHandle, event: .commitFinalization(bundle)

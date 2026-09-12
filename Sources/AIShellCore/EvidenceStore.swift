@@ -308,18 +308,24 @@ public actor EvidenceStore {
         guard FileManager.default.fileExists(atPath: dataURL(for: handle).path) else {
             throw AIShellError.handleNotFound(handle)
         }
+        return try Self.readSlice(handle: handle, url: dataURL(for: handle), totalBytes: metadata.sizeBytes,
+            sha256: metadata.sha256, expiresAt: metadata.expiresAt, mode: mode, byteBudget: byteBudget)
+    }
+
+    static func readSlice(handle: String, url: URL, totalBytes: Int, sha256: String,
+                          expiresAt: Date, mode: ArtifactReadMode, byteBudget: Int) throws -> ArtifactSlice {
         let budget = min(max(1, byteBudget), Self.maximumReadBytes)
 
         let selection: (offset: Int, data: Data, matchLine: Int?)
         switch mode {
         case let .range(offset, length):
-            let start = min(max(0, offset), metadata.sizeBytes)
-            let count = min(max(0, length), budget, metadata.sizeBytes - start)
-            selection = (start, try Self.readRange(url: dataURL(for: handle), offset: start, count: count), nil)
+            let start = min(max(0, offset), totalBytes)
+            let count = min(max(0, length), budget, totalBytes - start)
+            selection = (start, try Self.readRange(url: url, offset: start, count: count), nil)
         case let .tail(lines):
-            let windowStart = max(0, metadata.sizeBytes - budget)
+            let windowStart = max(0, totalBytes - budget)
             let window = try Self.readRange(
-                url: dataURL(for: handle), offset: windowStart, count: metadata.sizeBytes - windowStart
+                url: url, offset: windowStart, count: totalBytes - windowStart
             )
             let tail = Self.tail(data: window, lines: max(1, lines), budget: budget)
             selection = (windowStart + tail.0, tail.1, nil)
@@ -327,10 +333,10 @@ public actor EvidenceStore {
             guard !pattern.isEmpty else {
                 throw AIShellError.invalidArgument("patternは空にできません。")
             }
-            guard metadata.sizeBytes <= 64 * 1_024 * 1_024 else {
+            guard totalBytes <= 64 * 1_024 * 1_024 else {
                 throw AIShellError.invalidArgument("64MiB超のartifactではrangeまたはtailを使ってください。")
             }
-            let data = try Data(contentsOf: dataURL(for: handle), options: .mappedIfSafe)
+            let data = try Data(contentsOf: url, options: .mappedIfSafe)
             selection = try Self.around(
                 data: data,
                 pattern: pattern,
@@ -348,11 +354,11 @@ public actor EvidenceStore {
             base64: utf8 == nil ? selection.data.base64EncodedString() : nil,
             offset: selection.offset,
             returnedBytes: selection.data.count,
-            totalBytes: metadata.sizeBytes,
-            omittedBytes: max(0, metadata.sizeBytes - selection.data.count),
-            eof: end == metadata.sizeBytes,
-            sha256: metadata.sha256,
-            expiresAt: metadata.expiresAt,
+            totalBytes: totalBytes,
+            omittedBytes: max(0, totalBytes - selection.data.count),
+            eof: end == totalBytes,
+            sha256: sha256,
+            expiresAt: expiresAt,
             matchLine: selection.matchLine
         )
     }

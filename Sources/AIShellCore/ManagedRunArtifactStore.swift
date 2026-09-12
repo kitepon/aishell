@@ -69,6 +69,7 @@ public struct ManagedRunArtifactRecord: Codable, Equatable, Sendable {
 /// managed runの3 artifactとrun indexを、一つのdirectory renameで同時公開する。
 /// stagingは公開検索面から見えず、再試行は同じbindingだけを冪等に受理する。
 public actor ManagedRunArtifactStore: ManagedSpoolFinalizationSeam {
+    private let runtimeStore: RuntimeStore
     public static let storageSchema = "aishell.managed-run-index.v1"
 
     private let publicRootURL: URL
@@ -77,6 +78,7 @@ public actor ManagedRunArtifactStore: ManagedSpoolFinalizationSeam {
     private var pending: PendingPublication?
 
     public init(runtimeStore: RuntimeStore = RuntimeStore()) throws {
+        self.runtimeStore = runtimeStore
         let root = runtimeStore.baseDirectory
             .appendingPathComponent("managed-runs", isDirectory: true)
             .appendingPathComponent("artifacts", isDirectory: true)
@@ -216,6 +218,34 @@ public actor ManagedRunArtifactStore: ManagedSpoolFinalizationSeam {
         return record
     }
 
+    public func read(handle: String, mode: ArtifactReadMode, byteBudget: Int) throws -> ArtifactSlice {
+        let parts = handle.split(separator: "_", omittingEmptySubsequences: false)
+        guard parts.count == 3, parts[0] == "run", parts[1].count == 32 else {
+            throw ManagedRunArtifactStoreError.artifactNotFound
+        }
+        let hex = parts[1]
+        let uuid = "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.suffix(12))"
+        guard let runID = UUID(uuidString: uuid), FileManager.default.fileExists(atPath: publicRunURL(runID).path) else {
+            throw ManagedRunArtifactStoreError.artifactNotFound
+        }
+        // handleに束縛されたrunだけを検証する。他のrunの走査や別storeへの再試行はしない。
+        let record = try loadRecord(runID: runID)
+        guard let projectID = record.projectID else {
+            throw ManagedRunArtifactStoreError.legacyArtifactUnbound
+        }
+        try requireScope(record, projectID: projectID)
+        let expiresAt = try retainedExpiry(record)
+        guard expiresAt > Date() else { throw AIShellError.handleExpired(handle) }
+        let entries = [(record.stdout, "stdout.artifact"), (record.stderr, "stderr.artifact"),
+                       (record.diagnostics, "diagnostic.artifact")]
+        guard let (identity, name) = entries.first(where: { $0.0.handle == handle }) else {
+            throw ManagedRunArtifactStoreError.artifactNotFound
+        }
+        return try EvidenceStore.readSlice(handle: handle, url: publicRunURL(runID).appendingPathComponent(name),
+            totalBytes: Int(identity.sizeBytes), sha256: identity.sha256, expiresAt: expiresAt,
+            mode: mode, byteBudget: byteBudget)
+    }
+
     public func artifact(handle: String) throws -> ArtifactQueryService.Artifact {
         let directories = try FileManager.default.contentsOfDirectory(
             at: publicRootURL, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
@@ -240,10 +270,10 @@ public actor ManagedRunArtifactStore: ManagedSpoolFinalizationSeam {
 
     public func queryArtifact(handle: String, projectID: String) throws -> ArtifactQueryService.Artifact {
         let (record, artifact) = try boundArtifact(handle: handle)
-        if let expiresAt = record.expiresAt, expiresAt <= Date() {
+        try requireScope(record, projectID: projectID)
+        if try retainedExpiry(record) <= Date() {
             throw ManagedRunArtifactStoreError.artifactNotFound
         }
-        try requireScope(record, projectID: projectID)
         return artifact
     }
 
@@ -253,10 +283,10 @@ public actor ManagedRunArtifactStore: ManagedSpoolFinalizationSeam {
         projectID: String
     ) throws -> [ArtifactQueryService.Artifact] {
         let record = try loadRecord(runID: runID)
-        if let expiresAt = record.expiresAt, expiresAt <= Date() {
+        try requireScope(record, projectID: projectID)
+        if try retainedExpiry(record) <= Date() {
             throw ManagedRunArtifactStoreError.runExpired
         }
-        try requireScope(record, projectID: projectID)
         return try artifacts(runID: runID, channels: channels).map { artifact in
             ArtifactQueryService.Artifact(
                 id: artifact.id,
@@ -335,6 +365,12 @@ public actor ManagedRunArtifactStore: ManagedSpoolFinalizationSeam {
             }
         }
         throw ManagedRunArtifactStoreError.artifactNotFound
+    }
+
+    private func retainedExpiry(_ record: ManagedRunArtifactRecord) throws -> Date {
+        if let expiresAt = record.expiresAt { return expiresAt }
+        return try ManagedProcessRegistry.retainedArtifactExpiry(store: runtimeStore,
+            runID: record.runID, requestDigest: record.requestDigest, finalizedAt: record.finalizedAt)
     }
 
     private func requireScope(_ record: ManagedRunArtifactRecord, projectID: String) throws {
