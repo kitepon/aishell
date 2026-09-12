@@ -67,6 +67,8 @@ For lexical `search_context`, omitting `ranking` is valid: requests without a wo
 
 ## 調査対象を絞って読む
 
+通常のsnapshot再取得は、稼働中の変更観測と前回の全件照合以降の通知が連続する場合に、保持した一覧へ実ファイルの差分を反映する（`checkpointState: "reconciled"`）。通知欠落・保持範囲超過・観測停止時は全件を再構築する。restart時はcheckpointとfilesystemを照合し、未変更の内容hashを再利用する。`entry_limit`と`context_budget`は返却量だけを制限し、観測範囲を狭めない。
+
 `workspace_snapshot`の`context_paths`に注目するファイルを指定すると、その本文を共有予算内で抜粋する。
 省略時は案内・構成・実装を優先して最大8件を選び、隠し管理ファイルとarchiveは既定の本文候補から外す。
 ファイル一覧や明示読取りは維持する。調査意図を推測する機能は持たない。

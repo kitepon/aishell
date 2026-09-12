@@ -1,0 +1,54 @@
+{
+  "request": {
+    "path": "/Users/kite/Developer/aishell",
+    "context_budget": 1800,
+    "entry_limit": 5,
+    "project_profile": {
+      "mode": "none"
+    },
+    "git_diff": {
+      "mode": "branch",
+      "base_ref": "17d56c1642643099e669fe079ce2645cd2009afc^",
+      "include_patch": false,
+      "byte_budget": 3500
+    }
+  },
+  "measurements": [
+    {
+      "phase": "cold",
+      "version": "0.7.6",
+      "elapsedMs": 48348,
+      "entryCount": 198515,
+      "returnedEntries": 5,
+      "checkpointState": "missing",
+      "freshness": "fresh"
+    },
+    {
+      "phase": "unchanged-warm",
+      "version": "0.7.6",
+      "elapsedMs": 7703,
+      "entryCount": 198515,
+      "returnedEntries": 5,
+      "checkpointState": "reconciled",
+      "freshness": "fresh"
+    },
+    {
+      "phase": "two-file-change-warm",
+      "version": "0.7.6",
+      "elapsedMs": 7992,
+      "entryCount": 198515,
+      "returnedEntries": 5,
+      "checkpointState": "reconciled",
+      "freshness": "fresh"
+    },
+    {
+      "phase": "restart-warm",
+      "version": "0.7.6",
+      "elapsedMs": 21408,
+      "entryCount": 198515,
+      "returnedEntries": 5,
+      "checkpointState": "restored",
+      "freshness": "fresh"
+    }
+  ]
+}

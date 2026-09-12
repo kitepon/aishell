@@ -45,6 +45,8 @@ public actor WorkspaceStateRuntime {
         var prefetchedPaths: Set<String>
         var prefetchedEntries: [String: WorkspaceEntry]
         var journal: ObservationJournal
+        // 全entryの照合が完了した位置。retentionから未照合通知が落ちた状態を再利用しない。
+        var fullSnapshotPosition: (generation: String, sequence: UInt64)?
         var knownTransactionIDs: Set<String>
         var knownChangesBySequence: [UInt64: WorkspaceChange]
         var knownEchoes: [String: WorkspaceEntry?]
@@ -235,7 +237,32 @@ public actor WorkspaceStateRuntime {
             )
         }
 
-        if !newlyInitialized || state.journal.rescanReason != nil {
+        if !newlyInitialized, state.observer != nil {
+            try await Task.sleep(for: .milliseconds(500))
+            drainObserver(for: key)
+            guard let refreshed = states[key] else { throw AIShellError.invalidPath(root.path) }
+            state = refreshed
+        }
+        let canReconcileFull: Bool
+        if let position = state.fullSnapshotPosition {
+            canReconcileFull = state.observer != nil
+                && state.journal.rescanReason == nil
+                && position.generation == state.journal.generation
+                && position.sequence <= state.journal.sequence
+                && (state.journal.events.first.map { $0.sequence <= position.sequence + 1 }
+                    ?? (position.sequence == state.journal.sequence))
+        } else {
+            canReconcileFull = false
+        }
+        if !newlyInitialized && canReconcileFull {
+            // 保持した全変更範囲を実ファイルと照合してから、fullの新しいconsumer基点を作る。
+            _ = try reconcile(paths: state.journal.events.map(\.path), state: &state, maximumEntries: nil)
+            let watermark = state.journal.lastEventID
+            state.journal.startNewGeneration(UUID().uuidString.lowercased())
+            if let watermark { state.journal.advanceEventWatermark(to: watermark) }
+            state.knownChangesBySequence.removeAll(keepingCapacity: true)
+            state.checkpointState = "reconciled"
+        } else if !newlyInitialized || state.journal.rescanReason != nil {
             state.journal.startNewGeneration(UUID().uuidString.lowercased())
             state.knownChangesBySequence.removeAll(keepingCapacity: true)
             state.checkpointState = "rebuilt"
@@ -255,7 +282,7 @@ public actor WorkspaceStateRuntime {
         }
         if !state.journal.events.isEmpty {
             let appliedSequence = state.journal.sequence
-            _ = try reconcile(paths: state.journal.events.map(\.path), state: &state)
+            _ = try reconcile(paths: state.journal.events.map(\.path), state: &state, maximumEntries: nil)
             // full snapshotはそのcursor自体が新しいconsumer基点になるcheckpoint圧縮点。
             // delta snapshotだけが既存consumerのretained intervalを保持する。
             state.journal.discardEvents(through: appliedSequence)
@@ -263,6 +290,7 @@ public actor WorkspaceStateRuntime {
         }
         state.prefetchedPaths.removeAll(keepingCapacity: true)
         state.prefetchedEntries.removeAll(keepingCapacity: true)
+        state.fullSnapshotPosition = (state.journal.generation, state.journal.sequence)
         states[key] = state
         try await persistCheckpoint(state)
         let sorted = state.entries.values.sorted { $0.path < $1.path }
@@ -778,6 +806,11 @@ public actor WorkspaceStateRuntime {
     func scanInvocationCountForTests() -> Int { scanInvocationCount }
     func contentReadCountForTests() -> Int { contentReadCount }
 
+    func augmentEntriesForTests(_ entries: [String: WorkspaceEntry], rootPath: String) throws {
+        guard states[rootPath] != nil else { throw AIShellError.invalidPath(rootPath) }
+        states[rootPath]!.entries.merge(entries) { _, new in new }
+    }
+
     private func initialize(
         root: URL,
         key: String,
@@ -851,6 +884,7 @@ public actor WorkspaceStateRuntime {
                 events: restored?.journalEvents ?? [],
                 retentionLimit: journalLimit
             ),
+            fullSnapshotPosition: nil,
             knownTransactionIDs: [],
             knownChangesBySequence: Dictionary(uniqueKeysWithValues:
                 (restored?.journalChanges ?? []).map { ($0.sequence, $0.change) }
@@ -922,7 +956,7 @@ public actor WorkspaceStateRuntime {
             let rootPath = state.root.path
             let normalizedEvents = events.map {
                 ObservedFileEvent(
-                    path: Self.canonicalPath($0.path).path,
+                    path: Self.canonicalObservedPath($0.path).path,
                     eventID: $0.eventID,
                     flags: $0.flags
                 )
@@ -956,7 +990,7 @@ public actor WorkspaceStateRuntime {
         let rootPath = state.root.path
         let normalizedEvents = drained.events.map {
             ObservedFileEvent(
-                path: Self.canonicalPath($0.path).path,
+                path: Self.canonicalObservedPath($0.path).path,
                 eventID: $0.eventID,
                 flags: $0.flags
             )
@@ -977,9 +1011,11 @@ public actor WorkspaceStateRuntime {
         states[key] = state
     }
 
-    private func reconcile(paths: [String], state: inout RootState) throws -> [WorkspaceChange] {
+    private func reconcile(
+        paths: [String], state: inout RootState, maximumEntries: Int? = 5_000
+    ) throws -> [WorkspaceChange] {
         let reconciliationPaths = try expandedObservedPaths(paths, state: state)
-        guard reconciliationPaths.count <= 5_000 else {
+        if let maximumEntries, reconciliationPaths.count > maximumEntries {
             throw AIShellError.rescanRequired("directory subtree change exceeds 5000 entries")
         }
         var changes: [WorkspaceChange] = []
@@ -1058,9 +1094,20 @@ public actor WorkspaceStateRuntime {
     }
 
     private func expandedObservedPaths(_ paths: [String], state: RootState) throws -> [String] {
+        guard !paths.isEmpty else { return [] }
+        // 変更通知ごとに全entryを再走査せず、照合batchで一度だけ索引を作る。
+        var pathsByIdentity: [String: [String]] = [:]
+        var childrenByParent: [String: [String]] = [:]
+        for (path, entry) in state.entries {
+            pathsByIdentity[entry.identity, default: []].append(path)
+            let parent = path.lastIndex(of: "/").map { String(path[..<$0]) } ?? ""
+            childrenByParent[parent, default: []].append(path)
+        }
         var expanded: [String] = []
+        var visited = Set<String>()
+        var expandedIdentities = Set<String>()
         func append(_ path: String) {
-            if !expanded.contains(path) { expanded.append(path) }
+            if visited.insert(path).inserted { expanded.append(path) }
         }
         for path in paths { append(path) }
         var index = 0
@@ -1069,33 +1116,30 @@ public actor WorkspaceStateRuntime {
             index += 1
             let url = URL(fileURLWithPath: absolutePath).standardizedFileURL
             let relative = Self.relativePath(url.path, root: state.root.path)
-            let prefetched = state.prefetchedPaths.contains(relative)
+            let current = state.prefetchedPaths.contains(relative)
                 ? state.prefetchedEntries[relative]
                 : try currentEntry(url: url, root: state.root)
-            if let current = prefetched {
-                for (oldPath, oldEntry) in state.entries
-                    where oldPath != relative && oldEntry.identity == current.identity {
+            if let current, expandedIdentities.insert(current.identity).inserted {
+                for oldPath in pathsByIdentity[current.identity] ?? [] where oldPath != relative {
                     append(state.root.appendingPathComponent(oldPath).path)
                 }
             }
-            for oldPath in state.entries.keys where oldPath.hasPrefix(relative + "/") {
+            // 削除済みdirectoryも旧索引の直下から順に展開する。
+            for oldPath in childrenByParent[relative] ?? [] {
                 append(state.root.appendingPathComponent(oldPath).path)
             }
             guard FileManager.default.fileExists(atPath: url.path),
                   try url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else { continue }
             var traversalError: Error?
             guard let enumerator = FileManager.default.enumerator(
-                at: url,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [],
+                at: url, includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsSubdirectoryDescendants],
                 errorHandler: { _, error in traversalError = error; return false }
             ) else { continue }
+            // 子directoryはqueueから一度だけ列挙し、重なった通知でも子孫を再列挙しない。
             for case let child as URL in enumerator {
                 let childRelative = Self.relativePath(child.path, root: state.root.path)
-                if Self.isExcluded(childRelative) {
-                    enumerator.skipDescendants()
-                    continue
-                }
+                if Self.isExcluded(childRelative) { continue }
                 append(child.path)
             }
             if let traversalError { throw traversalError }
@@ -1160,7 +1204,10 @@ public actor WorkspaceStateRuntime {
         reusable: WorkspaceEntry? = nil
     ) throws -> WorkspaceEntry? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        guard Self.contains(url.resolvingSymlinksInPath().path, in: root.resolvingSymlinksInPath().path) else {
+        let resolvedPath = url.resolvingSymlinksInPath().path
+        let resolvedRoot = root.resolvingSymlinksInPath().path
+        let rootPrefix = resolvedRoot == "/" ? "/" : resolvedRoot + "/"
+        guard resolvedPath == resolvedRoot || resolvedPath.hasPrefix(rootPrefix) else {
             return nil
         }
         let values = try url.resourceValues(forKeys: [
@@ -1199,7 +1246,7 @@ public actor WorkspaceStateRuntime {
             hash = nil
         }
         return WorkspaceEntry(
-            path: Self.relativePath(url.path, root: root.path),
+            path: resolvedPath == resolvedRoot ? "" : String(resolvedPath.dropFirst(rootPrefix.count)),
             identity: identity,
             isDirectory: isDirectory,
             sizeBytes: size,
@@ -1486,5 +1533,18 @@ public actor WorkspaceStateRuntime {
 
     private static func canonicalPath(_ path: String) -> URL {
         URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+    }
+
+    private static func canonicalObservedPath(_ path: String) -> URL {
+        // 削除済みpathはFoundationがfirmlinkを解決できないため、存在する親で解決する。
+        var ancestor = URL(fileURLWithPath: path).standardizedFileURL
+        var missingComponents: [String] = []
+        while ancestor.path != "/", !FileManager.default.fileExists(atPath: ancestor.path) {
+            missingComponents.append(ancestor.lastPathComponent)
+            ancestor.deleteLastPathComponent()
+        }
+        var resolved = ancestor.resolvingSymlinksInPath()
+        for component in missingComponents.reversed() { resolved.appendPathComponent(component) }
+        return resolved
     }
 }
