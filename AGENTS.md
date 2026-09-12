@@ -2,78 +2,27 @@
 
 ## 製品目的
 
-AIShellのnorth starは、**macOSの生きた状態を直接所有し、その状態からAI開発に必要な最小情報と操作を生成して、成功課題あたりの総model tokenと所要時間を減らすこと**。
+AIShellは、AIがshellを介さずmacOSのOS操作を直接呼び、入力に対応した結果を受け取るためのMCPです。製品の責務は、要求された操作の実行、正確な結果・エラーの返却、使用ログの保存だけです。
 
-優先順位:
+2026-09-12のオーナー指示により、管理UI、キーチェーン認証、編集取引・復旧記録、所有者認証、workspace監視、checkpoint、独自cache、artifact管理、自動的な試験選択、専用診断とprofileを廃止しました。過去の計画・ADR・調査に記載されたこれらの機能を現行要件として復活させません。
 
-1. correctness / task success
-2. total model tokens per solved task
-3. wall time / model・tool往復
-4. compatibility
+## 実装
 
-Direct OSは交換可能なbackendではなく、効率化を生む設計上の根である。AIShellがfile identity、OS変更の観測・照合state、process lifecycle、worktree、artifactをモデルより下で所有する。安全性は停止、Trash、SHA競合検出を床として維持するが、現在の最適化対象ではない。
+- Sources/AIShellCoreはファイル、process、他アプリの直接操作と使用ログを所有します。
+- Sources/AIShellMCPはstdio JSON-RPC / MCP変換だけを所有します。
+- 実行中の要求に必要な一時状態だけを持ちます。完了した編集やprocessを再実行・復旧する仕組みは持ちません。
+- shell文字列を自動評価せず、実行ファイル、引数、作業directory、環境変数、標準入力を分離して渡します。指定された実行ファイルを名前で禁止しません。
+- 絶対パスは指定した対象、相対パスと省略時はMCP起動directoryを使います。操作範囲はmacOSのアクセス権に従います。
+- 値の黙った補正、出力の黙った省略、失敗の成功扱いをしません。任意の件数・深さ・時間制限は呼出しで指定された場合だけ適用します。
+- 使用ログはactivity.jsonlへ追記します。内容・環境変数・復旧用コピーを保存しません。
+- AIのreasoning、工程、thread、compaction、子agent、汎用PTYを再実装しません。
 
-操作対象フォルダの事前登録や許可一覧は持たない。絶対パスはその対象、相対パスと省略時はMCP起動ディレクトリを基準にする。
+## 開発と配布
 
-新機能は、OS状態を直接観測・保持して再scan、再読、再実行、model往復を減らせる場合だけ採用する。OS状態と無関係な便利toolや薄いwrapperを詰め込まない。
+公開契約とrelease手順はREADME.md、登録手順はdocs/setup.md、文書索引はdocs/README.mdを参照します。旧設計はdocs/archive・docs/adr・docs/evidenceとragに履歴として残します。
 
-## 必要時の参照先
+変更中は対象のfocused testだけを実行し、個別確認後にnpm testとnpm run test:packageを実行します。MCPの変更はinitialize、tools/list、成功・失敗応答を確認します。文書だけの変更ではSwift testを実行しません。
 
-- 完了した能力拡張campaignの経緯が必要な時だけ`docs/archive/development-efficiency-plan.md`を読む。現行の製品目的と設計境界は本ファイルを正とする。
-- 外部調査の前だけ`rag/INDEX.md`を検索する。
-- 公開挙動、配布、利用手順を変える時だけ`README.md`を読む。
-- 文書の所有と寿命を判断する時だけ`docs/README.md`を読む。
-- legacy挙動の由来が必要な時だけ`docs/archive/direct-os-spike.md`を読む。今後のGUIロードマップには使わない。
+配布物はdist/aishell-mcpと明示的なaishell-setupです。GUIアプリと常駐supervisorは配布しません。npm install lifecycleでprocessや認証画面を起動しません。
 
-削減率は、隔離された同一model snapshot、reasoning、fixture、prompt、sandboxでbaselineと比較できる場合だけ主張する。主KPIは失敗試行のtokenも含む`tokens per solved task`。wire bytesやtokenizer概算をprovider報告tokenと混ぜない。
-
-## アーキテクチャ境界
-
-- AIShellは単独でinstall、config、state/schema、migration、diagnostics、recovery、
-  update、releaseできる契約を本repo内に持つ。dotagentsは製品横断wireと互換projectionを
-  統合するだけで、AIShellの内部状態や運用判断を制御しない。
-- 製品単体の準備・AI登録・読戻し・MCP実操作は`aishell-setup`が所有する。Mac/AI別の差は`scripts/setup/`へ置き、管理アプリ操作は既存の`AIShellCore`を使う。npm install lifecycleでは起動しない。公開契約は`docs/setup.md`を正とする。
-- AI hostがreasoning、thread、compaction、sub-agent、汎用PTYを所有する。AIShellで再実装しない。
-- AIShellはfile identity、FSEvents観測とfilesystem照合によるdelta、直接起動したprocess、完全log/artifact、freshnessを所有する。FSEvents単独を完全な履歴とは見なさない。
-- Git、`rg`、compiler、test runner、SourceKit-LSPはAIShellが直接起動・監視するworkerとして再利用する。状態の所有者や公開toolの寄せ集めにはしない。
-- shell文字列を評価せず、executable URL、引数、working directoryを分離したままprocessを起動する。shell群、`env`、`osascript`のbasename拒否は汎用shell wrapperへ退行させない製品上の設計レールであり、security boundaryではない。許可workerの子processや改名binaryまで阻止するものとして扱わない。
-- `AIShellCore`へdomain機能、`AIShellMCP`へprotocol変換を置く。MCP handlerへ開発ロジックを埋め込まない。
-- 既存20 primitiveは互換経路・下位実装としてfull profileに残す。baseline fullは高密度5＋control 2＋legacy 18の25 tool、`expanded-v1` fullは高密度9＋control 2＋legacy 18の29 toolである。
-
-## Tool / result規約
-
-- stable MCP 2025-11-25を実装基準にし、structured resultはtop-level objectと`outputSchema`を持たせる。
-- schema、tool順、descriptionは決定的にする。timestamp、cwd、runtime状態をdefinitionへ混ぜない。
-- 通常結果は短いsummaryとprimary evidenceだけ。完全結果は`expires_at`付きhandleで保持する。
-- 省略可能なread/search/run系高密度出力にbudgetを設け、`omitted`、`has_more`、cursor、freshnessを明示する。
-- silent truncation、silent full-scan fallback、silent backend fallbackは禁止する。advertised retention中の一次証拠を削除しない。
-- cursor失効、内容変更、index staleは機械判定可能なerrorにする。
-- 新しい公開toolは、既存toolとの重複とbaseline比較を示してから追加する。
-
-## 開発と検証
-
-主な構成:
-
-- `Sources/AIShellCore`: file/process/runtime/domain service
-- `Sources/AIShellMCP`: stdio JSON-RPC / MCP adapter
-- `Sources/AIShellApp`: macOS管理アプリ
-- `Tests/AIShellCoreTests`: focused unit/integration tests
-- `docs/`: 現役索引、診断contract、ADR/evidence、archive
-- `rag/`: 調査統合、`rag/raw/`: 一次資料変換物
-
-標準確認:
-
-```text
-swift test
-scripts/package-app.sh release
-```
-
-変更中は対象focused testだけを回し、完了時に関連testを1回確認する。MCP wire変更ではinitialize、tools/list、成功・失敗resultのfixtureを確認する。docs/RAG/AGENTSだけの変更ではSwift testを回さず、リンク、Markdown、diffを確認する。
-
-外部仕様を調べた場合は、取得日・出典・確度付きで`rag/raw/`へ保存し、統合記事と`rag/INDEX.md`を更新する。撤回済み資料やvendor効果量を製品根拠へ昇格させない。
-
-## 文書規約
-
-- 現役文書は`docs/README.md`に列挙する。同じ目的の文書はcontractに最も近い1文書へmergeする。
-- 完了plan、release notes、handoff、置換済み設計は`docs/archive/`へ移す。ADRとevidenceは専用folderに保持する。
-- archiveを現行操作の正本にしない。release作業の入口はREADMEとproduct-owned script、公開記録はGitHub Releasesを正とする。
+製品は本repo内でbuild、test、公開できる状態を保ちます。他製品の内部状態や運用を代行しません。新機能は、要求されたOS操作を正確に実行して返すために必要なものだけを採用します。

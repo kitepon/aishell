@@ -6,7 +6,7 @@ import { aiNames } from './setup/hosts.mjs';
 try {
   const args = process.argv.slice(2);
   if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
-    console.log('aishell-setup [--ai claude,codex,grok,cursor] [--check]\n初回・再実行・更新後に管理アプリ準備、MCP登録、読戻し、実操作を確認します。\n省略時は導入済みAIを検出。--checkは設定変更と管理アプリ起動を行いません。');
+    console.log('aishell-setup [--ai claude,codex,grok,cursor] [--check]\n初回・再実行・更新後にMCP登録、読戻し、ファイル操作と直接実行を確認します。\n省略時は導入済みAIを検出。--checkは設定を変更しません。');
   } else {
     const options = {};
     for (let index = 0; index < args.length; index++) {
@@ -19,6 +19,6 @@ try {
     console.log(JSON.stringify(await setup(options)));
   }
 } catch (error) {
-  console.error(JSON.stringify({ ...(error.report ?? { schemaVersion: 'aishell.setup.v1', status: 'failed' }), error: { code: error.code ?? 'SETUP_FAILED', message: error instanceof SetupError ? error.message : 'setup中の入出力処理に失敗しました。設定fileの権限と導入状態を確認してください。' } }));
+  console.error(JSON.stringify({ ...(error.report ?? { schemaVersion: 'aishell.setup.v2', status: 'failed' }), error: { code: error.code ?? 'SETUP_FAILED', message: error instanceof SetupError ? error.message : 'setup中の入出力処理に失敗しました。設定fileの権限と導入状態を確認してください。' } }));
   process.exitCode = 1;
 }

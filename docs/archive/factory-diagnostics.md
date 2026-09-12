@@ -1,3 +1,5 @@
+> この契約は廃止済みです。現行の利用方法は[README](../../README.md)を参照してください。
+
 # Factory diagnostics contract
 
 This is the product-owned source of truth for AIShell diagnostics. Factory

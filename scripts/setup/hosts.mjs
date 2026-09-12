@@ -36,7 +36,9 @@ function object(value, label) {
 
 export function canonicalRegistration(current = {}, ai) {
   object(current, 'AIShell設定');
-  const next = { ...current, command: 'aishell-mcp', args: [], env: { ...object(current.env ?? {}, 'AIShell env'), AISHELL_CAPABILITY_SET: 'expanded-v1' } };
+  const next = { ...current, command: 'aishell-mcp', args: [], env: { ...object(current.env ?? {}, 'AIShell env') } };
+  delete next.env.AISHELL_CAPABILITY_SET;
+  delete next.env.AISHELL_TOOL_PROFILE;
   if (Object.values(next.env).some(value => typeof value !== 'string')) throw new SetupError('CONFIG_INVALID', 'AIShell envの値は文字列である必要があります。');
   // transportの旧値はAIShellが所有する。利用者のtimeout・許可tool等は保持する。
   for (const key of ['url', 'http_headers', 'env_http_headers', 'bearer_token_env_var', 'headers']) delete next[key];

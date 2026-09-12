@@ -155,7 +155,7 @@ test("CIの外部actionはimmutable commitへ固定する", async () => {
 test("公開metadataと製品versionはcanonical座標へ揃う", async () => {
   const packageMetadata = JSON.parse(await readFile(path.join(projectDirectory, "package.json"), "utf8"));
   const productSource = await readFile(
-    path.join(projectDirectory, "Sources/AIShellCore/FactoryDiagnostics.swift"),
+    path.join(projectDirectory, "Sources/AIShellCore/Product.swift"),
     "utf8"
   );
   const productVersion = productSource.match(/public\s+static\s+let\s+version\s*=\s*"([^"]+)"/)?.[1];

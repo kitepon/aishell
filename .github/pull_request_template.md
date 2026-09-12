@@ -4,11 +4,11 @@ Describe the problem and the resulting behavior.
 
 ## Contract affected
 
-- [ ] パス解決 / workspaceの束縛 / file identity / filesystem照合
-- [ ] Process lifecycle / worker execution
-- [ ] Artifact retention / freshness / pagination
+- [ ] パス解決 / ファイル操作
+- [ ] プログラムの直接実行 / アプリ操作
+- [ ] 使用ログ
 - [ ] MCP schema / tool surface
-- [ ] App / packaging / documentation only
+- [ ] 配布 / 登録 / 文書
 
 ## Verification
 
@@ -16,7 +16,7 @@ List the focused commands and results. Do not mark unrun checks as passing.
 
 - [ ] Focused tests
 - [ ] `swift test`
-- [ ] `scripts/package-app.sh release`
+- [ ] `npm run test:package`
 - [ ] MCP fixtures or package payload, when applicable
 
 ## Public impact
