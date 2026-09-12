@@ -1,0 +1,60 @@
+name: npm公開
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: macos-15
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: 公開対象を取得
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+      - name: Node.jsを準備
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: ツールと依存を準備
+        run: |
+          swift --version
+          node --version
+          npm --version
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: タグと製品の版を照合
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import { readFileSync } from "node:fs";
+            const { version } = JSON.parse(readFileSync("package.json", "utf8"));
+            assert.equal(process.env.RELEASE_TAG, `v${version}`, "公開タグと製品の版が一致しません。");
+          '
+      - name: 公開条件と配布物を確認
+        run: npm run prepublishOnly
+      - name: npmへ自動認証で公開
+        # 直前に正規の公開検査を完了しているため、同じbuildをlifecycleで繰り返さない。
+        run: npm publish --access public --ignore-scripts
+      - name: GitHub Releaseを作成
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$RELEASE_TAG" --verify-tag
+          --title "$RELEASE_TAG"
+          --notes-file "docs/archive/releases/release-notes-${RELEASE_TAG#v}.md"

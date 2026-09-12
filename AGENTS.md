@@ -83,3 +83,7 @@ npm run build:npm
 - 現役文書は`docs/README.md`に列挙する。同じ目的の文書はcontractに最も近い1文書へmergeする。
 - 完了plan、release notes、handoff、置換済み設計は`docs/archive/`へ移す。ADRとevidenceは専用folderに保持する。
 - archiveを現行操作の正本にしない。release作業の入口はREADMEとproduct-owned script、公開記録はGitHub Releasesを正とする。
+
+## npm公開
+
+公開は`.github/workflows/publish.yml`が所有する。mainへ反映した版のタグを送ると、GitHub管理のMacで既存の公開条件・配布物検査を行い、Trusted Publishingで直接公開してGitHub Releaseを作成する。通常の公開でローカルの`npm publish`やログインを実行しない。初回の公開元登録にはnpm公式の`npm trust github`を使う。

@@ -185,35 +185,28 @@ npm install -g @quolu/aishell@latest && aishell-setup
 `factory_diagnostics`を呼ぶ。schemaとprivacy境界は
 [製品側diagnostics contract](https://github.com/kitepon/aishell/blob/main/docs/factory-diagnostics.md)が正である。
 
-releaseでは`AIShellProduct.version`と`package.json`を一致させ、release記録を
-[`docs/archive/releases/`](https://github.com/kitepon/aishell/tree/main/docs/archive/releases)へ追加して、次を実行する。
+公開はGitHub Actionsの[公開workflow](https://github.com/kitepon/aishell/blob/main/.github/workflows/publish.yml)から行う。
+`AIShellProduct.version`と`package.json`の版を揃え、`docs/archive/releases/`へrelease notesを追加し、変更をmainへ反映する。
+そのcommitに対応する版タグを送ると、配布物の検査、npmへの直接公開、GitHub Release作成まで自動で進む。
 
 ```sh
-npm test
-npm run test:package
-git fetch origin
-npm run verify:release-commit
-npm whoami
-npm publish --access public --browser=false
+git tag "v$(node -p 'require("./package.json").version')"
+git push origin "v$(node -p 'require("./package.json").version')"
 ```
 
-release gateはdirty treeと既定branchへ未着地のcommitを拒否する。publish後は対応する
-GitHub Releaseを作り、`@quolu/aishell@latest`を再installしてMCP initializeと
-`factory_diagnostics`をsmokeする。公開済みversionの正本はGitHub Releasesである。
+npmには`kitepon/aishell`の`publish.yml`をTrusted Publisherとして登録し、`npm publish`を許可する。
+公開jobはGitHub管理のMacで動き、OIDCで自動認証する。長期npm tokenと公開ごとのTouch IDは不要。
+通常CIの別runを待つgateは持たず、既定ブランチへの反映と配布物を公開job自身が確認する。
+`prepublishOnly`を明示実行してから公開するため、lifecycleによる同じビルドの再実行も行わない。
 
-### 公開認証と導入確認
-
-`npm whoami`が認証エラーを返した場合は、対話端末で`npm login --registry=https://registry.npmjs.org/ --browser=false`を実行し、表示された新しいURLを利用するブラウザで開いて認証する。公開コマンドも対話端末で実行し、出力をファイルへリダイレクトしない。公開用の認証URLが表示された場合は、ログインとは別に認証する。URLが失効した場合はコマンドを再実行して新しいURLを使う。
-
-npmのログインsessionは2時間で失効し、公開時には二要素認証が適用される（[npm公式説明](https://github.blog/changelog/2025-12-09-npm-classic-tokens-revoked-session-based-auth-and-cli-token-management-now-available/)）。公開の成功後に、registryとグローバルインストールを確認する。
+公開後は標準の更新入口で導入する。
 
 ```sh
-npm view @quolu/aishell dist-tags.latest
-npm install -g @quolu/aishell@latest
-npm ls -g @quolu/aishell --depth=0
+npm install -g @quolu/aishell@latest && aishell-setup
 ```
 
-MCPを再接続し、`initialize`のversion、`runtime_status`、事前登録のない対象フォルダの検索と実行を確認する。工場診断は別processを`AISHELL_TOOL_PROFILE=factory`で起動し、`AISHELL_CAPABILITY_SET`を設定せずに確認する。
+`aishell-setup --check`と工場診断で導入結果を確認する。既存MCPは再接続または新しいセッションで新版へ切り替わる。
+初回のTrusted Publisher設定変更時にnpmが要求する本人認証は別途必要になる。
 
 ## 開発検証
 
