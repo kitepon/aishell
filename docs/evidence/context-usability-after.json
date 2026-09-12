@@ -31,7 +31,7 @@
       "coveredQueries": 2
     }
   },
-  "version": "0.7.4",
+  "version": "0.7.5",
   "snapshot": {
     "responseBytes": 18572,
     "paths": [
@@ -44,6 +44,5 @@
       "rag/INDEX.md",
       "package.json"
     ]
-  },
-  "build": "0.7.5向け作業ツリー。計測時のserverInfo.versionは0.7.4"
+  }
 }

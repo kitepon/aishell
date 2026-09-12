@@ -1,6 +1,6 @@
 # 検索・複数ファイル読取りの実測
 
-取得日: 2026-09-13。対象: 0.7.4と0.7.5向け修正。これはJSON応答byte数の比較で、provider報告tokenや最適なモデル操作回数の比較ではない。
+取得日: 2026-09-13。対象: 公開0.7.4と公開0.7.5。これはJSON応答byte数の比較で、provider報告tokenや最適なモデル操作回数の比較ではない。
 
 ## 原因
 
@@ -52,3 +52,14 @@ Windows実装をsnapshotへ直接埋め込むには`context_paths`、特定部�
 
 上限が小さければ全対象の必要箇所が一度に入るとは限らない。長い周辺blockは既存のoversized descriptorを返す。
 read continuationは全対象のSHAへ結びつき、UTF-8の欠落・重複なしで継続する。cursor・検索continuationの整合性、明示error、完全log/artifact保持は維持する。
+
+## 公開後の受入
+
+実装commitは`17d56c1642643099e669fe079ce2645cd2009afc`。通常CI `34711450334`と公開workflow `34711451874`は成功し、npm registryの0.7.5のgitHeadも一致した。
+公開workflowが製品所有のrelease条件・build:npm・配布物検査を実行した。ローカルでは変更に直結する失敗再現、workspace/read/search/MCPの関連試験、公開文書の8検査が成功した。
+
+このMacで公式npm更新とaishell-setupを実行し、Claude・Codex・Grok・Cursor全てが0.7.5、hostVerified/ready=true、workspace_snapshot成功となった。
+公開aishell-mcpで本稿の固定比較を再実行し、表と同じ回数・応答量を再現した。修正後JSONはこの公開版の実測である。
+
+実際のdotagentsでも、context_pathsでWindows setupとagents-update.shを選択し、3対象読取りは1回・14,999本文bytes、行80〜110の読取り、期待SHA不一致のCONTENT_CHANGED、広いregexの8周辺blockが本文に届くことを確認した。検索recordは13,485 bytesで14,000の上限内だった。
+元repo、他製品の設定、Git除外設定は変更していない。今回の受入項目に未解決の不具合は残っていない。既存AIセッションのMCPは再接続すると新版へ切り替わる。
