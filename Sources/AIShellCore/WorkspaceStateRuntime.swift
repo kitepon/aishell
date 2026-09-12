@@ -340,10 +340,16 @@ public actor WorkspaceStateRuntime {
             needsPersistence = true
         }
         if !state.journal.events.isEmpty {
-            let appliedSequence = state.journal.sequence
-            _ = try reconcile(paths: state.journal.events.map(\.path), state: &state)
-            state.journal.discardEvents(through: appliedSequence)
-            state.knownChangesBySequence.removeAll(keepingCapacity: true)
+            let retained = state.journal.events
+            let changes = try reconcile(paths: retained.map(\.path), state: &state)
+            // 検索開始は他consumerのackではない。照合済み差分もcursorの保持区間に残す。
+            for change in changes {
+                for event in retained where
+                    Self.relativePath(event.path, root: root.path) == change.path
+                        || Self.relativePath(event.path, root: root.path) == change.previousPath {
+                    state.knownChangesBySequence[event.sequence] = change
+                }
+            }
             needsPersistence = true
         }
         state.prefetchedPaths.removeAll(keepingCapacity: true)

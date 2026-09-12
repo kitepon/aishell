@@ -61,6 +61,33 @@ final class WorkspaceStateRuntimeTests: XCTestCase {
         XCTAssertEqual(changedScanCount, 1)
     }
 
+    func testSearchCursorPreservesEarlierConsumerAcrossNoOpAndChangedEvents() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.cleanup() }
+        let root = fixture.base.appendingPathComponent("workspace", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let file = root.appendingPathComponent("State.swift")
+        try "let value = 1\n".write(to: file, atomically: false, encoding: .utf8)
+        let store = RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime"))
+        await store.setWorkingDirectoryForTesting(root)
+        let runtime = WorkspaceStateRuntime(runtimeStore: store, startsFSEvents: false)
+        let initial = try await runtime.snapshot(path: root.path, contextBudget: 0)
+
+        await runtime.ingestObservedPaths([file.path])
+        _ = try await runtime.currentSearchCursor(path: root.path)
+        let unchanged = try await runtime.snapshot(path: root.path, sinceCursor: initial.cursor)
+        XCTAssertTrue(unchanged.changes.isEmpty)
+
+        try "let value = 2\n".write(to: file, atomically: false, encoding: .utf8)
+        await runtime.ingestObservedPaths([file.path])
+        _ = try await runtime.currentSearchCursor(path: root.path)
+        _ = try await runtime.currentSearchCursor(path: root.path)
+        let changed = try await runtime.snapshot(path: root.path, sinceCursor: initial.cursor)
+        XCTAssertEqual(changed.changes.map(\.path), ["State.swift"])
+        let repeated = try await runtime.snapshot(path: root.path, sinceCursor: initial.cursor)
+        XCTAssertEqual(repeated.changes, changed.changes)
+    }
+
     func testCurrentSearchCursorRestoresCheckpointWithoutFilesystemScan() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
