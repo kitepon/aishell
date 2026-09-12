@@ -1,35 +1,18 @@
 #!/usr/bin/env node
+import { cp, mkdir, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { cp, mkdir, rm } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const projectDirectory = path.dirname(scriptDirectory);
-const packageScript = path.join(projectDirectory, "scripts", "package-app.sh");
-const builtApp = path.join(projectDirectory, "build", "AIShell.app");
-const distributionDirectory = path.join(projectDirectory, "dist");
-const distributionApp = path.join(distributionDirectory, "AIShell.app");
-
-const build = spawnSync(packageScript, ["release"], {
-  cwd: projectDirectory,
-  stdio: "inherit"
-});
-
-if (build.error) {
-  throw build.error;
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+execFileSync('swift', ['build', '-c', 'release'], { cwd: root, stdio: 'inherit' });
+const bin = execFileSync('swift', ['build', '-c', 'release', '--show-bin-path'], { cwd: root, encoding: 'utf8' }).trim();
+const dist = path.join(root, 'dist');
+await rm(dist, { recursive: true, force: true });
+await mkdir(dist, { recursive: true });
+for (const name of ['aishell-mcp', 'aishell-run-supervisor']) {
+  const target = path.join(dist, name);
+  await cp(path.join(bin, name), target);
+  execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', target], { stdio: 'inherit' });
 }
-
-if (build.status !== 0) {
-  throw new Error(`Release build failed with status ${build.status}`);
-}
-
-await rm(distributionDirectory, { recursive: true, force: true });
-await mkdir(distributionDirectory, { recursive: true });
-await cp(builtApp, distributionApp, {
-  recursive: true,
-  preserveTimestamps: true
-});
-
-console.log(distributionApp);
+console.log('MCPと実行監視の実行ファイルを生成しました。');

@@ -3,13 +3,13 @@ import XCTest
 
 @MainActor
 final class NativeApplicationServiceTests: XCTestCase {
-    func testPreparationRejectsMissingBundleBeforeOpeningApplication() async throws {
+    func testOpenRejectsUnknownApplication() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let service = NativeApplicationService(store: RuntimeStore(baseDirectory: fixture.base.appendingPathComponent("runtime")))
         do {
-            _ = try await service.prepareManagerApplication(at: fixture.base.appendingPathComponent("Missing.app"))
-            XCTFail("存在しないbundleの準備は失敗する必要があります。")
+            _ = try await service.openApplication(bundleIdentifier: "dev.kitepon.aishell.test.missing")
+            XCTFail("存在しないアプリの起動は失敗する必要があります。")
         } catch {
             XCTAssertTrue(error is AIShellError)
         }

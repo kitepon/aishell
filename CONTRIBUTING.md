@@ -15,20 +15,20 @@ AIShell requires an Apple Silicon Mac running macOS 15 or later.
 
 ```sh
 swift test
-scripts/package-app.sh release
+npm run build:npm
 ```
 
 文書だけの変更ではSwift testを実行せず、`npm run test:repository-contract`と差分確認でリンク・配布文書の整合を検証する。
 
-導入・AI登録の変更は`npm run test:setup`、native準備処理の変更は`NativeApplicationServiceTests`を先に確認する。公開時は`npm test`と`npm run test:package`を通し、公開npm版を対応Macへ公式導入して`aishell-setup`の実操作まで確認する。製品単体の導入契約は[docs/setup.md](docs/setup.md)を参照する。
+導入・AI登録の変更は`npm run test:setup`、アプリ操作の変更は`NativeApplicationServiceTests`を先に確認する。公開時は`npm test`と`npm run test:package`を通し、公開npm版を対応Macへ公式導入して`aishell-setup`の実操作まで確認する。製品単体の導入契約は[docs/setup.md](docs/setup.md)を参照する。
 
-Use `xcodegen generate` only when the Xcode project needs regeneration. Do not commit derived build output.
+SwiftPMを使う。生成したbuild出力はcommitしない。
 
 ## Pull request checklist
 
 - Explain the user-visible or protocol-visible change.
 - Identify the affected path resolution, workspace identity, file identity, process lifecycle, artifact, or freshness contract.
-- Include focused test results and any relevant package-app verification.
+- Include focused test results and any relevant 配布packageの検証.
 - Update README, release notes, schemas, and fixtures when public behavior changes.
 - Do not claim token or wall-time improvements without an isolated baseline using the same model, reasoning, fixture, prompt, and sandbox.
 

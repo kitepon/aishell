@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, readdir, rm, symlink } from 'node:
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { stringify } from 'smol-toml';
-import { setup, supportedPlatform, prepareKeychain } from './setup.mjs';
+import { setup, supportedPlatform } from './setup.mjs';
 import { aiNames, hostSpec, readHost, planHost, writeHost } from './hosts.mjs';
 import { withMCP, SetupError } from './mcp-client.mjs';
 
@@ -22,35 +22,14 @@ async function fixture(t) {
   return { home, dependencies, events, spec: ai => hostSpec(ai, home, dependencies.env) };
 }
 
-test('鍵の準備は別processの非対話読取りまで成功してからreadyを返す', () => {
-  const calls = [];
-  const result = prepareKeychain({ check: false, env: {} }, (_binary, [argument]) => {
-    calls.push(argument);
-    return JSON.stringify({ ready: true, checkedKeys: 2 });
-  });
-  assert.deepEqual(calls, ['--prepare-keychain', '--check-keychain']);
-  assert.deepEqual(result, { ready: true, checkedKeys: 2 });
-});
-
-test('鍵の一時許可だけでは成功にせず、診断では認証UIを出さない', () => {
-  for (const check of [false, true]) {
-    const calls = [];
-    assert.throws(() => prepareKeychain({ check, env: {} }, (_binary, [argument]) => {
-      calls.push(argument);
-      if (argument === '--check-keychain') throw new Error('認証が必要');
-      return JSON.stringify({ ready: true, checkedKeys: 2 });
-    }), { code: 'KEYCHAIN_NOT_READY' });
-    assert.deepEqual(calls, check ? ['--check-keychain'] : ['--prepare-keychain', '--check-keychain']);
-  }
-});
-
-test('鍵の検証失敗はAI登録を書き換える前に止まる', async t => {
+test('管理UIとKeychainの準備を呼ばず登録と実操作まで進む', async t => {
   const f = await fixture(t);
-  f.dependencies.keychain = async () => { throw new SetupError('KEYCHAIN_NOT_READY', 'fixture'); };
-  await assert.rejects(setup({ ais: aiNames }, f.dependencies), error =>
-    error.code === 'KEYCHAIN_NOT_READY' && error.report.stage === 'keychain');
-  assert.deepEqual(f.events, ['prepare']);
-  assert.deepEqual(await readdir(f.home), []);
+  f.dependencies.prepare = f.dependencies.keychain = async () => { throw new Error('廃止した処理'); };
+  const result = await setup({ ais: ['codex'] }, f.dependencies);
+  assert.equal(result.status, 'ready');
+  assert.equal(result.manager, undefined);
+  assert.equal(result.keychain, undefined);
+  assert.deepEqual(f.events, ['smoke']);
 });
 
 for (const ai of aiNames) {
@@ -58,7 +37,7 @@ for (const ai of aiNames) {
     const f = await fixture(t);
     const first = await setup({ ais: [ai] }, f.dependencies);
     assert.equal(first.hosts[0].registration, 'updated');
-    assert.deepEqual(f.events, ['prepare', 'smoke']);
+    assert.deepEqual(f.events, ['smoke']);
     const original = await readFile(f.spec(ai).file, 'utf8');
     const second = await setup({ ais: [ai] }, f.dependencies);
     assert.equal(second.hosts[0].registration, 'unchanged');
@@ -108,13 +87,6 @@ test('OS/CPU/最低OSを拒否し設定とprocessを作らない', async t => {
   assert.doesNotThrow(() => supportedPlatform('darwin', 'arm64', '26.0.1'));
 });
 
-test('管理アプリ準備失敗はAI設定を作らない', async t => {
-  const f = await fixture(t);
-  f.dependencies.prepare = async () => { throw new SetupError('MANAGER_PREPARATION_FAILED', 'fixture'); };
-  await assert.rejects(setup({ ais: aiNames }, f.dependencies), error => error.code === 'MANAGER_PREPARATION_FAILED' && error.report.stage === 'prepare');
-  assert.deepEqual(await readdir(f.home), []);
-});
-
 test('壊れた設定は全対象の書込み・準備前に拒否する', async t => {
   const f = await fixture(t), spec = f.spec('grok');
   await mkdir(path.dirname(spec.file));
@@ -128,7 +100,7 @@ test('登録失敗を成功にせず、実操作と後続AIの更新を止める
   const f = await fixture(t);
   f.dependencies.write = async () => { throw new SetupError('REGISTRATION_FAILED', 'fixture'); };
   await assert.rejects(setup({ ais: aiNames }, f.dependencies), error => error.code === 'REGISTRATION_FAILED' && error.report.stage === 'register:claude');
-  assert.deepEqual(f.events, ['prepare']);
+  assert.deepEqual(f.events, []);
   assert.deepEqual(await readdir(f.home), []);
 });
 

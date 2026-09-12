@@ -4,14 +4,14 @@ import XCTest
 @testable import AIShellMCP
 
 final class MCPApplyChangeSetWireTests: XCTestCase {
-    func testKeychainFailureReportsOnlyThisRequestAsAbortedBeforeSideEffect() throws {
+    func testLocalKeyFailureReportsOnlyThisRequestAsAbortedBeforeSideEffect() throws {
         let store = RuntimeStore()
         let server = MCPServer(runtimeStore: store)
-        let error = ApplyChangeSetError(.changeSetSecretStoreUnavailable, "Keychain read failed: -25308")
+        let error = ApplyChangeSetError(.changeSetSecretStoreUnavailable, "ローカル鍵の読取りに失敗")
         let result = server.structuredError(error, stable: server.stableError(error)).objectValue
         XCTAssertEqual(result?["request_status"], .string("aborted_before_side_effect"))
         XCTAssertEqual(result?["changed_paths"], .array([]))
-        XCTAssertEqual(result?["next_action"], .string("authorize_keychain_access_then_retry"))
+        XCTAssertEqual(result?["next_action"], .string("check_local_state_key_then_retry"))
         XCTAssertNil(result?["recovery_state"])
         XCTAssertNil(result?["transaction_id"])
     }
@@ -43,7 +43,7 @@ final class MCPApplyChangeSetWireTests: XCTestCase {
         )
         let rootDigest = SHA256.hash(data: Data(root.path.utf8))
             .map { String(format: "%02x", $0) }.joined()
-        let changeSetState = stateBase.appendingPathComponent("apply-change-set", isDirectory: true)
+        let changeSetState = stateBase.appendingPathComponent("apply-change-set-local-v1", isDirectory: true)
             .appendingPathComponent(rootDigest, isDirectory: true)
         defer {
             ApplyChangeSetSecretStore.removeKeyForTesting(stateDirectory: changeSetState)

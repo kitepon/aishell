@@ -29,9 +29,10 @@ assert.deepEqual(packageMetadata.os, ["darwin"]);
 assert.deepEqual(packageMetadata.cpu, ["arm64"]);
 assert.equal(
   packageMetadata.bin["aishell-mcp"],
-  "dist/AIShell.app/Contents/Helpers/aishell-mcp"
+  "dist/aishell-mcp"
 );
-assert.equal(packageMetadata.bin["aishell-open"], "scripts/aishell-open.mjs");
+assert.equal(packageMetadata.bin["aishell-open"], undefined);
+assert.ok(packageMetadata.files.includes("dist/aishell-run-supervisor"));
 assert.equal(packageMetadata.bin["aishell-setup"], "scripts/aishell-setup.mjs");
 for (const file of ["scripts/aishell-setup.mjs", "scripts/setup/hosts.mjs", "scripts/setup/host-cli.mjs", "scripts/setup/setup.mjs", "scripts/setup/mcp-client.mjs", "scripts/setup/toml-registration.mjs"]) {
   assert.ok(packageMetadata.files.includes(file), `${file}をnpm payloadへ含める必要があります。`);
@@ -43,7 +44,7 @@ await access(path.join(projectDirectory, packageMetadata.bin["aishell-mcp"]));
 // install scriptは持たない。npm 11.17.0はglobal installでも自package自身のinstall scriptを
 // 既定でblockし（allow-scripts未設定で `npm warn allow-scripts` のみ出る）、宣言するだけで
 // 全installへ警告行が増える。0.4.4のpostinstall警告を0.4.5で撤回した経緯はADR 0029に記録。
-// 開いたままupgradeされた窓の検知はapp側（InstallationIntegrity）が正である。
+// setupと通常利用は管理UIを起動しない。
 assert.ok(
   !("postinstall" in (packageMetadata.scripts ?? {})),
   "no postinstall: npm blocks install scripts by default, so declaring one only adds a warning"
@@ -55,36 +56,10 @@ for (const lifecycle of ["preinstall", "install", "postinstall"]) {
   );
 }
 
-const infoPlist = await readFile(
-  path.join(projectDirectory, "dist", "AIShell.app", "Contents", "Info.plist"),
-  "utf8"
-);
-
-assert.match(
-  infoPlist,
-  new RegExp(`<key>CFBundleShortVersionString</key>\\s*<string>${packageMetadata.version}</string>`)
-);
-// CFBundleVersionはsemantic versionと独立したbuild番号なのでpackage.jsonから導出できない。
-// Packaging/Info.plistを単一正本とし、payloadがそれと一致することだけを検証する。
-const sourceInfoPlist = await readFile(
-  path.join(projectDirectory, "Packaging", "Info.plist"),
-  "utf8"
-);
-const bundleVersion = sourceInfoPlist.match(
-  /<key>CFBundleVersion<\/key>\s*<string>(\d+)<\/string>/
-)?.[1];
-assert.ok(bundleVersion, "CFBundleVersion must be a positive integer in Packaging/Info.plist");
-assert.match(
-  infoPlist,
-  new RegExp(`<key>CFBundleVersion</key>\\s*<string>${bundleVersion}</string>`)
-);
-
-// MCP hostは`aishell-mcp`をbare command名で起動する。argv[0]がpathを含まない起動形式でも
-// AIShell.app bundleを解決できることを、payloadの実binaryで確認する。ここが緩むと工場診断が
-// manager.application_bundle_unavailable を返し、reporterがAIShellをnot_readyと判定する。
-const payloadBinary = path.join(
-  projectDirectory, "dist", "AIShell.app", "Contents", "Helpers", "aishell-mcp"
-);
+// bare commandで配布物を起動し、UIがなくても診断がreadyになることを確かめる。
+const payloadBinary = path.join(projectDirectory, "dist", "aishell-mcp");
+const symbols = execFileSync("/usr/bin/nm", ["-u", payloadBinary], { encoding: "utf8" });
+assert.doesNotMatch(symbols, /SecItem|SecKeychain/, "配布binaryはKeychain APIへ依存しない");
 const pathDirectory = await mkdtemp(path.join(tmpdir(), "aishell-verify-"));
 try {
   await symlink(payloadBinary, path.join(pathDirectory, "aishell-mcp"));
@@ -99,7 +74,7 @@ try {
 
   const stdout = await new Promise((resolve, reject) => {
     const child = spawn("aishell-mcp", [], {
-      env: { ...process.env, PATH: `${pathDirectory}:${process.env.PATH}`, AISHELL_TOOL_PROFILE: "factory" },
+      env: { ...process.env, PATH: `${pathDirectory}:${process.env.PATH}`, AISHELL_TOOL_PROFILE: "factory", AISHELL_CAPABILITY_SET: undefined },
       stdio: ["pipe", "pipe", "ignore"]
     });
     let output = "";
@@ -117,8 +92,8 @@ try {
   assert.equal(diagnostics.product.version, packageMetadata.version);
   assert.equal(
     diagnostics.manager.applicationBundleState,
-    "available",
-    "AIShell.app must resolve when argv[0] carries no directory component"
+    "not_required",
+    "管理UIは配布とreadyの条件にしない"
   );
   assert.ok(
     Object.values(diagnostics.privacy).every((exposed) => exposed === false),
@@ -152,7 +127,17 @@ try {
   assert.equal(result.ready, true);
   const { withMCP } = await import(pathToFileURL(path.join(installDirectory, "node_modules/@quolu/aishell/scripts/setup/mcp-client.mjs")));
   const work = path.join(packedDirectory, "work"); await mkdir(work);
-  await withMCP({ command: "aishell-mcp", args: [], env: { AISHELL_CAPABILITY_SET: "expanded-v1" } }, async ({ call }) => {
+  await withMCP({ command: "aishell-mcp", args: [], env: { AISHELL_CAPABILITY_SET: "expanded-v1", AISHELL_TOOL_PROFILE: "full" } }, async ({ call, request }) => {
+    assert.equal((await request("tools/list", {})).tools.length, 29, "削除前の全tool名を配布物でも保持する");
+    const snapshot = (await call("workspace_snapshot", { path: work, context_budget: 0, entry_limit: 10, project_profile: { mode: "none" } })).structuredContent;
+    const content = "認証なしの編集\n日本語 $HOME; *";
+    const applied = (await call("apply_change_set", {
+      path: work, workspace_cursor: snapshot.cursor,
+      changes: [{ change_id: "packed-create", operation: "create", path: "edited.txt",
+        expected: { state: "absent" }, content: { encoding: "utf8", data: content } }]
+    })).structuredContent;
+    assert.equal(applied.status, "committed");
+    assert.equal(await readFile(path.join(work, "edited.txt"), "utf8"), content);
     let status = (await call("run_check", {
       schema: "aishell.run-check.v2", cache: "off",
       dispatch: { mode: "start", client_run_key: "packed-bare-supervisor" },

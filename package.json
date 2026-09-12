@@ -1,6 +1,6 @@
 {
   "name": "@quolu/aishell",
-  "version": "0.6.2",
+  "version": "0.7.1",
   "description": "A native macOS state runtime with high-density MCP tools for AI development",
   "license": "Apache-2.0",
   "author": {
@@ -29,13 +29,12 @@
     "arm64"
   ],
   "bin": {
-    "aishell-mcp": "dist/AIShell.app/Contents/Helpers/aishell-mcp",
-    "aishell-open": "scripts/aishell-open.mjs",
+    "aishell-mcp": "dist/aishell-mcp",
     "aishell-setup": "scripts/aishell-setup.mjs"
   },
   "files": [
-    "dist/AIShell.app",
-    "scripts/aishell-open.mjs",
+    "dist/aishell-mcp",
+    "dist/aishell-run-supervisor",
     "scripts/aishell-setup.mjs",
     "scripts/setup/hosts.mjs",
     "scripts/setup/host-cli.mjs",

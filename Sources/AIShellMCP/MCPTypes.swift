@@ -581,18 +581,18 @@ enum ToolCatalog {
             )
         ),
         tool(
-            "runtime_status", "実行状態", "停止状態、相対パスの基準、次に必要な操作を取得します。フォルダ登録は不要です。停止中でも利用できます。",
+            "runtime_status", "実行状態", "相対パスの基準と実行状態を取得します。管理UI、停止設定、フォルダ登録は不要です。",
             properties: [:], required: [], readOnly: true, idempotent: true,
             outputSchema: objectOutput(
                 required: ["relativePathBase", "isPaused", "updatedAt", "managerTool", "nextAction"],
                 properties: [
                     "relativePathBase": nullableType("string"), "isPaused": type("boolean"),
-                    "updatedAt": type("string"), "managerTool": type("string"), "nextAction": type("string")
+                    "updatedAt": type("string"), "managerTool": nullableType("string"), "nextAction": type("string")
                 ]
             )
         ),
         tool(
-            "runtime_open_manager", "管理画面を開く", "AIShellが停止中でも管理画面を開きます。停止と再開は画面上で行います。",
+            "runtime_open_manager", "廃止済みの管理画面", "互換用の旧入口です。管理UIは廃止したためMANAGER_REMOVEDを返します。OS操作に管理画面は不要です。",
             properties: [:], required: [], idempotent: true,
             outputSchema: objectOutput(
                 required: ["name", "processIdentifier", "isActive"],
@@ -1526,9 +1526,9 @@ enum ToolCatalog {
                             .string("operationReadiness"), .string("isPaused"), .string("configuredRootCount"),
                             .string("automaticGitWorktreeCount"), .string("effectiveRootCount")
                         ]), "properties": .object([
-                            "schemaVersion": .object(["const": .string("aishell.runtime_configuration.v2")]),
-                            "configurationState": enumType(["valid", "uninitialized", "invalid"]),
-                            "migrationStatus": enumType(["compatible_on_read", "blocked"]),
+                            "schemaVersion": .object(["const": .string("aishell.runtime_configuration.v3")]),
+                            "configurationState": enumType(["valid", "uninitialized", "invalid", "not_required"]),
+                            "migrationStatus": enumType(["compatible_on_read", "blocked", "not_required"]),
                             "operationReadiness": enumType(["ready", "paused", "not_configured", "invalid_roots", "invalid_configuration"]),
                             "isPaused": nullableType("boolean"), "configuredRootCount": nullableNonNegativeIntegerType(),
                             "automaticGitWorktreeCount": nullableNonNegativeIntegerType(), "effectiveRootCount": nullableNonNegativeIntegerType()
@@ -1543,7 +1543,7 @@ enum ToolCatalog {
                     "manager": .object([
                         "type": .string("object"), "required": .array([.string("applicationBundleState"), .string("ready")]),
                         "properties": .object([
-                            "applicationBundleState": enumType(["available", "unavailable"]), "ready": type("boolean")
+                            "applicationBundleState": enumType(["available", "unavailable", "not_required"]), "ready": type("boolean")
                         ]), "additionalProperties": .bool(false)
                     ]),
                     "privacy": .object([

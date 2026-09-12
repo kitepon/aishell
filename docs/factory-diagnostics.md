@@ -18,10 +18,10 @@ profile: its catalog contains this tool alone. The response schema is fixed at
 - Runtime configuration schema, migration status, configuration validity, and operation readiness
 - 旧root件数の3フィールドは診断schema互換のため0を返す。登録機能や範囲制限はない。
 - MCP stdio transport, protocol version, and catalog-validation readiness
-- Manager application bundle readiness
+- 管理UIの状態は`not_required`、互換用の`manager.ready`はtrueを返す。
 - Typed issue codes
 
-`paused`は操作停止を表す。設定ファイルがなくても`ready`になり、旧設定のフォルダが存在しなくても利用できる。JSONの読み取り失敗は製品の準備失敗として返す。
+管理UIと停止設定は廃止した。`configurationState`と`migrationStatus`は`not_required`、`isPaused`はfalseを返す。旧JSONは操作と診断の条件にしない。
 
 ## Privacy
 
@@ -39,5 +39,5 @@ BugHub ingest `factory_diagnostics` only.
 
 - Diagnostics schema: `aishell.native_factory_diagnostics.v1`
 - Runtime schema: `aishell.runtime_configuration.v3`
-- 旧`allowedRootPath`・`allowedRootPaths`は読み取り時に無視し、保存時に除去する。停止状態と更新日時は引き継ぐ。
+- 旧runtime設定は保持するが読み込まない。
 - A schema change adds a new version; existing consumers are never silently reinterpreted

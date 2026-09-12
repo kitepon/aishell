@@ -38,7 +38,7 @@ npm install -g @quolu/aishell && aishell-setup
 summaryから省略された証拠だけartifact_readで読んで。
 ```
 
-既定profileは5本の高密度development toolと、常時利用できる2本の復旧control toolを提供する。
+既定profileは5本の高密度development tool、実行状態と管理画面の旧入口を提供する。
 
 | Tool | 役割 |
 |---|---|
@@ -47,11 +47,11 @@ summaryから省略された証拠だけartifact_readで読んで。
 | `search_context` | 直接起動した`rg` workerによるbudget付き検索context |
 | `run_check` | 直接process実行、主要diagnostic、完全stdout/stderr artifact |
 | `artifact_read` | 保持artifactのrange、tail、pattern周辺read |
-| `runtime_status` | 停止状態、相対パスの基準、次操作の状態取得 |
-| `runtime_open_manager` | AI操作の停止・再開のため管理アプリを開く |
+| `runtime_status` | 実行状態と相対パスの基準 |
+| `runtime_open_manager` | 互換用の旧入口。管理UIの廃止を`MANAGER_REMOVED`で返す |
 
 MCP serverへ`AISHELL_CAPABILITY_SET=expanded-v1`を設定すると、candidate surfaceへ明示opt-inできる。
-高密度development 9本と復旧control 2本を公開し、`run_observe`、`workspace_wait`、
+高密度development 9本、実行状態と管理画面の旧入口を公開し、`run_observe`、`workspace_wait`、
 `change_impact`、`apply_change_set`を追加する。既存toolにもmanaged run、artifact query、
 semantic search、project profile、Git branch/worktree modeが加わる。
 
@@ -77,7 +77,7 @@ statelessな連携では、モデルがworkspaceを何度もscanし、command出
 | Context | budget・cursor付きstructured result | stdoutを手動または暗黙に切り詰める |
 | Execution | executable URL、引数、cwd、lifecycleを分離 | shellが1本のcommand文字列を評価 |
 | Evidence | 完全stdout/stderrを期限付きhandleで保持 | response truncation時に証拠が失われやすい |
-| Scope | macOSのアクセス権と明示的stop状態 | 周囲のshellとhost policyに依存 |
+| Scope | macOSのアクセス権 | 周囲のshellとhost policyに依存 |
 
 AIShellはsandboxではなく、任意code実行を安全化しない。process railの目的はtyped executionと観測可能なlifecycleを維持することであり、改名binaryや許可workerが起動する子processを阻止することではない。
 
@@ -99,13 +99,13 @@ flowchart LR
 
 ## npmからinstall
 
-global packageは`aishell-mcp`、`aishell-open`、`aishell-setup`を`PATH`へ追加する。npm install自体ではスクリプトも管理アプリも起動しない。
+global packageは`aishell-mcp`、`aishell-setup`を`PATH`へ追加する。npm install自体ではスクリプトも管理アプリも起動しない。
 
 対象AIのCLI（`claude`、`codex`、`grok`、Cursorの`agent`）を先に導入する。setupは各CLIからの読戻しも確認する。
 
-`aishell-setup`は導入済みのClaude Code・Codex・Grok Build・Cursorを検出し、管理アプリ準備、MCP登録、設定の読戻し、実際のMCP操作まで確認する。登録はbare `aishell-mcp`＋`AISHELL_CAPABILITY_SET=expanded-v1`。利用者のenv、PATH、他の設定を保持する。`--ai`で対象を指定でき、`--check`は設定やアプリ起動を変更せず診断する。Windows/LinuxとIntel Macは対象外。詳細は[製品単体の導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
+`aishell-setup`は導入済みのClaude Code・Codex・Grok Build・Cursorを検出し、MCP登録、設定の読戻し、実際のMCP操作まで確認する。登録はbare `aishell-mcp`＋`AISHELL_CAPABILITY_SET=expanded-v1`。利用者のenv、PATH、他の設定を保持する。`--ai`で対象を指定でき、`--check`は設定を変更せず診断する。Windows/LinuxとIntel Macは対象外。詳細は[製品単体の導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
 
-更新後も同じ`aishell-setup`を実行する。旧管理アプリを正常終了して導入済みのアプリを開き、登録保持・読戻し・MCP実操作まで確認する。接続済みのMCPは、hostで再接続すると新版へ切り替わる。
+更新後も同じ`aishell-setup`を実行する。登録保持・読戻し・MCP実操作まで確認する。管理UIとKeychain認証は不要。接続済みのMCPは、hostで再接続すると新版へ切り替わる。
 
 ```sh
 npm install -g @quolu/aishell && aishell-setup
@@ -119,11 +119,10 @@ npm install -g @quolu/aishell && aishell-setup
 git clone https://github.com/kitepon/aishell.git
 cd aishell
 swift test
-scripts/package-app.sh release
-open build/AIShell.app
+npm run build:npm
 ```
 
-MCP実行ファイルは`build/AIShell.app/Contents/Helpers/aishell-mcp`へ同梱される。
+実行ファイルは`dist/aishell-mcp`と`dist/aishell-run-supervisor`へ生成する。
 
 フォルダ登録は不要。絶対パスは指定した場所を、相対パスと省略時はMCP起動ディレクトリを基準にする。Git worktreeも直接指定でき、旧設定の許可フォルダ一覧は無視される。
 
@@ -143,7 +142,7 @@ codex mcp remove aishell
 ```
 
 expanded capability未指定時の互換用full profileは全25 toolを提供する。既定7本は5本の
-development toolと2本の復旧control toolで、full modeは残りのlegacy primitiveも公開する。
+development toolと実行状態と管理画面の旧入口で、full modeは残りのlegacy primitiveも公開する。
 `expanded-v1`ではdevelopment 11本、full 29本を公開する。
 
 ```sh
@@ -151,11 +150,11 @@ AISHELL_TOOL_PROFILE=full /opt/homebrew/bin/aishell-mcp
 AISHELL_CAPABILITY_SET=expanded-v1 AISHELL_TOOL_PROFILE=full /opt/homebrew/bin/aishell-mcp
 ```
 
-full profileにはfile一覧・read、SHA-256競合検出付きatomic update、copy/move/rename/Trash、直接process実行、app discovery/launch、runtime status、管理アプリの前面化が含まれる。
+full profileにはfile一覧・read、SHA-256競合検出付きatomic update、copy/move/rename/Trash、直接process実行、app discovery/launch、runtime statusが含まれる。
 
-`apply_change_set`のKeychain認証が必要な場合は、UIを待たず`CHANGE_SET_SECRET_STORE_UNAVAILABLE`を返す。
-取引開始前の失敗は`error.request_status: aborted_before_side_effect`と空の`changed_paths`で確認できる。
-既存鍵のアクセス認証を解決してから再実行する。transport timeoutだけを編集中止の証拠にしない。
+`apply_change_set`はKeychainを使わない。操作の挙動、競合検出、差分、再起動後の継続を維持し、内部データの鍵は同じOSユーザーだけが読めるローカルファイルへ保存する。
+旧版の暗号化履歴は変更せず残し、未完了の編集ファイルがない対象では新しい状態で操作を開始する。
+使用ログは`~/Library/Application Support/AIShell/activity.jsonl`へ保存する。詳しくは[導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
 
 ## 実行と安全性の境界
 
@@ -163,7 +162,7 @@ full profileにはfile一覧・read、SHA-256競合検出付きatomic update、c
 - `sh`、`bash`、`zsh`、`env`、`osascript`等のbasename直接起動を製品上のrailとして拒否する。security boundaryとして宣伝しない。
 - `run_check`はopen-world capabilityであり、許可workerはfile更新・子process・network accessを行い得る。AI hostによっては実行承認が必要になる。
 - text更新はSHA-256または旧textを事前条件にできる。削除はTrashへ送る。
-- 管理アプリから通常操作を一括停止できる。停止中もruntime statusと管理アプリの前面化は利用できる。
+- 管理UIと停止設定は廃止した。旧`runtime.json`は操作の条件にしない。
 
 ## 現在の制限
 
@@ -175,13 +174,13 @@ full profileにはfile一覧・read、SHA-256競合検出付きatomic update、c
 
 ## 運用・更新・release
 
-単独installの更新は初回と同じ公式npm経路を使い、新版の管理アプリを開く。
+単独installの更新は初回と同じ公式npm経路とsetupを使う。
 
 ```sh
 npm install -g @quolu/aishell@latest && aishell-setup
 ```
 
-停止中の復旧入口は`runtime_status`と`runtime_open_manager`である。
+`runtime_status`で実行状態を確認できる。管理UIは廃止済み。
 工場consumerは専用`AISHELL_TOOL_PROFILE=factory` MCP surfaceから
 `factory_diagnostics`を呼ぶ。schemaとprivacy境界は
 [製品側diagnostics contract](https://github.com/kitepon/aishell/blob/main/docs/factory-diagnostics.md)が正である。
@@ -220,17 +219,10 @@ MCPを再接続し、`initialize`のversion、`runtime_status`、事前登録の
 
 ```sh
 swift test
-scripts/package-app.sh release
+npm run build:npm
 ```
 
-`xcodegen generate`で`AIShell.xcodeproj`を再生成できる。実装の正本は`Sources/AIShellCore`、`Sources/AIShellMCP`、`Sources/AIShellApp`、focused testは`Tests/`に置く。
-
-<details>
-<summary>ローカルXcode検証時の注記</summary>
-
-初回検証機ではXcode 26.6とCoreSimulatorのbuild versionが一致せず、`xcodebuild`はXCBuild開始前に停止した。同じSwift 6.3.3 toolchainを使うSwiftPMは通過した。このhost問題はsourceの成功扱いへ混ぜていない。
-
-</details>
+実装は`Sources/AIShellCore`、`Sources/AIShellMCP`、`Sources/AIShellRunSupervisor`に置き、SwiftPMでbuildする。
 
 ## ContributionとSecurity
 

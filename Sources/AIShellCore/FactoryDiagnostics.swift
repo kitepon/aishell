@@ -2,7 +2,7 @@ import Foundation
 
 public enum AIShellProduct {
     public static let identifier = "aishell"
-    public static let version = "0.6.2"
+    public static let version = "0.7.1"
     public static let diagnosticsSchemaVersion = "aishell.native_factory_diagnostics.v1"
     public static let runtimeSchemaVersion = "aishell.runtime_configuration.v3"
     public static let mcpProtocolVersion = "2025-11-25"
@@ -72,47 +72,15 @@ public struct FactoryDiagnosticsService {
 
     public func diagnose(managerApplicationURL: URL?, mcpReady: Bool) async -> FactoryDiagnostics {
         let platform = currentPlatform()
-        let managerReady = managerApplicationURL.map {
-            $0.pathExtension == "app" && fileManager.fileExists(atPath: $0.path)
-        } ?? false
-
-        let runtime: FactoryDiagnostics.Runtime
+        let runtime = FactoryDiagnostics.Runtime(
+            schemaVersion: AIShellProduct.runtimeSchemaVersion,
+            configurationState: "not_required", migrationStatus: "not_required",
+            operationReadiness: "ready", isPaused: false,
+            configuredRootCount: 0, automaticGitWorktreeCount: 0, effectiveRootCount: 0
+        )
         var issues: [String] = []
-        do {
-            let configuration = try await store.loadConfiguration()
-            let operationReadiness = configuration.isPaused ? "paused" : "ready"
-
-            runtime = FactoryDiagnostics.Runtime(
-                schemaVersion: AIShellProduct.runtimeSchemaVersion,
-                configurationState: fileManager.fileExists(atPath: store.configurationURL.path)
-                    ? "valid"
-                    : "uninitialized",
-                migrationStatus: "compatible_on_read",
-                operationReadiness: operationReadiness,
-                isPaused: configuration.isPaused,
-                configuredRootCount: 0,
-                automaticGitWorktreeCount: 0,
-                effectiveRootCount: 0
-            )
-        } catch {
-            runtime = FactoryDiagnostics.Runtime(
-                schemaVersion: AIShellProduct.runtimeSchemaVersion,
-                configurationState: "invalid",
-                migrationStatus: "blocked",
-                operationReadiness: "invalid_configuration",
-                isPaused: nil,
-                configuredRootCount: nil,
-                automaticGitWorktreeCount: nil,
-                effectiveRootCount: nil
-            )
-            issues.append("runtime.invalid_configuration")
-        }
-
         if !platform.supported {
             issues.append("platform.unsupported")
-        }
-        if !managerReady {
-            issues.append("manager.application_bundle_unavailable")
         }
 
         return FactoryDiagnostics(
@@ -126,8 +94,8 @@ public struct FactoryDiagnosticsService {
                 ready: mcpReady
             ),
             manager: .init(
-                applicationBundleState: managerReady ? "available" : "unavailable",
-                ready: managerReady
+                applicationBundleState: "not_required",
+                ready: true
             ),
             privacy: .init(
                 exposesAllowedRootPaths: false,
@@ -135,10 +103,7 @@ public struct FactoryDiagnosticsService {
                 exposesFileContents: false,
                 exposesProcessArguments: false
             ),
-            ready: mcpReady
-                && platform.supported
-                && runtime.configurationState != "invalid"
-                && managerReady,
+            ready: mcpReady && platform.supported,
             issues: issues
         )
     }

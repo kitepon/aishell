@@ -377,6 +377,7 @@ public enum AIShellError: LocalizedError, Equatable, Sendable {
     case textFileTooLarge(Int)
     case applicationNotFound(String)
     case applicationActivationFailed(String)
+    case managerRemoved
     case contentChanged(String)
     case executableNotAllowed(String)
     case processLaunchFailed(String)
@@ -395,6 +396,8 @@ public enum AIShellError: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
+        case .managerRemoved:
+            "管理UIは廃止しました。操作は設定や認証なしで利用できます。"
         case .paused:
             "AI操作は停止中です。runtime_open_managerでAIShellを開き、管理画面で再開してください。"
         case let .outsideWorkspace(path):

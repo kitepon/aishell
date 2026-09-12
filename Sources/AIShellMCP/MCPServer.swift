@@ -223,7 +223,7 @@ final class MCPServer: Sendable {
         case "factory_diagnostics":
             try validateKeys(arguments, allowed: [])
             return try await .from(FactoryDiagnosticsService(store: store).diagnose(
-                managerApplicationURL: try? managerApplicationURL(),
+                managerApplicationURL: nil,
                 mcpReady: isToolCatalogValid
             ))
         case "run_check":
@@ -553,9 +553,7 @@ final class MCPServer: Sendable {
         case "runtime_status":
             return try await runtimeStatus()
         case "runtime_open_manager":
-            return try await .from(NativeApplicationService(store: store).openManagerApplication(
-                at: try managerApplicationURL()
-            ))
+            throw AIShellError.managerRemoved
         case "files_list":
             return try await .from(files.list(path: optionalString("path", in: arguments)))
         case "files_search":
@@ -646,34 +644,14 @@ final class MCPServer: Sendable {
     private func runtimeStatus() async throws -> JSONValue {
         let configuration = try await store.loadConfiguration()
         let resolver = await store.pathResolver()
-        let nextAction = configuration.isPaused
-            ? "runtime_open_managerを呼び、AIShell画面で再開してください。"
-            : "利用可能です。対象フォルダは絶対パスで指定できます。相対パスはrelativePathBaseを基準にします。"
+        let nextAction = "利用可能です。管理UIと認証は不要です。相対パスはrelativePathBaseを基準にします。"
         return .object([
             "relativePathBase": .string(resolver.rootURL.path),
             "isPaused": .bool(configuration.isPaused),
             "updatedAt": .string(ISO8601DateFormatter().string(from: configuration.updatedAt)),
-            "managerTool": .string("runtime_open_manager"),
+            "managerTool": .null,
             "nextAction": .string(nextAction)
         ])
-    }
-
-    private func managerApplicationURL() throws -> URL {
-        // MCP hostは`aishell-mcp`をbare command名で起動するため、argv[0]がpathを含まない。
-        // その場合CWD相対に解決されbundleを見失うので、実際にloadされたexecutable pathを正とする。
-        let executableURL = (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0]))
-            .resolvingSymlinksInPath()
-            .standardizedFileURL
-        let applicationURL = executableURL
-            .deletingLastPathComponent() // Helpers
-            .deletingLastPathComponent() // Contents
-            .deletingLastPathComponent() // AIShell.app
-        guard applicationURL.pathExtension == "app" else {
-            throw AIShellError.invalidPath(
-                "実行中のMCP helperに対応するAIShell.appを特定できません。@quolu/aishellを再インストールしてください。"
-            )
-        }
-        return applicationURL
     }
 
     private func requiredString(_ key: String, in arguments: [String: JSONValue]) throws -> String {
@@ -1264,6 +1242,7 @@ final class MCPServer: Sendable {
             return ("INTERNAL_ERROR", error.localizedDescription)
         }
         switch error {
+        case .managerRemoved: return ("MANAGER_REMOVED", error.localizedDescription)
         case .paused: return ("RUNTIME_PAUSED", error.localizedDescription)
         case .outsideWorkspace: return ("OUTSIDE_WORKSPACE", error.localizedDescription)
         case .reservedPath: return ("RESERVED_PATH", error.localizedDescription)
@@ -1302,7 +1281,7 @@ final class MCPServer: Sendable {
             // 鍵の取得はservice生成と編集開始より前。過去取引の状態は推定しない。
             object["request_status"] = .string("aborted_before_side_effect")
             object["changed_paths"] = .array([])
-            object["next_action"] = .string("authorize_keychain_access_then_retry")
+            object["next_action"] = .string("check_local_state_key_then_retry")
         }
         if let context = (error as? ApplyChangeSetError)?.context {
             object["transaction_id"] = .string(context.transactionID)

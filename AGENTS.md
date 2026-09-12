@@ -11,7 +11,7 @@ AIShellのnorth starは、**macOSの生きた状態を直接所有し、その�
 3. wall time / model・tool往復
 4. compatibility
 
-Direct OSは交換可能なbackendではなく、効率化を生む設計上の根である。AIShellがfile identity、OS変更の観測・照合state、process lifecycle、worktree、artifactをモデルより下で所有する。安全性は停止、Trash、SHA競合検出を床として維持するが、現在の最適化対象ではない。
+Direct OSは交換可能なbackendではなく、効率化を生む設計上の根である。AIShellがfile identity、OS変更の観測・照合state、process lifecycle、worktree、artifactをモデルより下で所有する。TrashとSHA競合検出を維持するが、現在の最適化対象ではない。
 
 操作対象フォルダの事前登録や許可一覧は持たない。絶対パスはその対象、相対パスと省略時はMCP起動ディレクトリを基準にする。
 
@@ -27,12 +27,18 @@ Direct OSは交換可能なbackendではなく、効率化を生む設計上の�
 
 削減率は、隔離された同一model snapshot、reasoning、fixture、prompt、sandboxでbaselineと比較できる場合だけ主張する。主KPIは失敗試行のtokenも含む`tokens per solved task`。wire bytesやtokenizer概算をprovider報告tokenと混ぜない。
 
+## 操作機能と認証・UI
+
+OS操作のツールと挙動を維持する。認証や管理UIの廃止を理由に、検索・一括読取り・変更待機・実行監視・影響解析・複数ファイル編集・artifact読取りを削らない。
+管理UIと停止設定、Keychainアクセスは廃止した。`runtime_open_manager`は互換名だけを残し、廃止済みの明示エラーを返す。
+編集状態のローカル鍵と旧版からの更新契約は`docs/setup.md`を参照する。使用ログは従来の`activity.jsonl`へ保存する。
+
 ## アーキテクチャ境界
 
 - AIShellは単独でinstall、config、state/schema、migration、diagnostics、recovery、
   update、releaseできる契約を本repo内に持つ。dotagentsは製品横断wireと互換projectionを
   統合するだけで、AIShellの内部状態や運用判断を制御しない。
-- 製品単体の準備・AI登録・読戻し・MCP実操作は`aishell-setup`が所有する。Mac/AI別の差は`scripts/setup/`へ置き、管理アプリ操作は既存の`AIShellCore`を使う。npm install lifecycleでは起動しない。公開契約は`docs/setup.md`を正とする。
+- 製品単体の準備・AI登録・読戻し・MCP実操作は`aishell-setup`が所有する。Mac/AI別の差は`scripts/setup/`へ置き、管理UIとKeychain認証は持たない。npm install lifecycleでは起動しない。公開契約は`docs/setup.md`を正とする。
 - AI hostがreasoning、thread、compaction、sub-agent、汎用PTYを所有する。AIShellで再実装しない。
 - AIShellはfile identity、FSEvents観測とfilesystem照合によるdelta、直接起動したprocess、完全log/artifact、freshnessを所有する。FSEvents単独を完全な履歴とは見なさない。
 - Git、`rg`、compiler、test runner、SourceKit-LSPはAIShellが直接起動・監視するworkerとして再利用する。状態の所有者や公開toolの寄せ集めにはしない。
@@ -56,7 +62,7 @@ Direct OSは交換可能なbackendではなく、効率化を生む設計上の�
 
 - `Sources/AIShellCore`: file/process/runtime/domain service
 - `Sources/AIShellMCP`: stdio JSON-RPC / MCP adapter
-- `Sources/AIShellApp`: macOS管理アプリ
+- `Sources/AIShellRunSupervisor`: 直接起動したprocessの監視
 - `Tests/AIShellCoreTests`: focused unit/integration tests
 - `docs/`: 現役索引、診断contract、ADR/evidence、archive
 - `rag/`: 調査統合、`rag/raw/`: 一次資料変換物
@@ -65,7 +71,7 @@ Direct OSは交換可能なbackendではなく、効率化を生む設計上の�
 
 ```text
 swift test
-scripts/package-app.sh release
+npm run build:npm
 ```
 
 変更中は対象focused testだけを回し、完了時に関連testを1回確認する。MCP wire変更ではinitialize、tools/list、成功・失敗resultのfixtureを確認する。docs/RAG/AGENTSだけの変更ではSwift testを回さず、リンク、Markdown、diffを確認する。

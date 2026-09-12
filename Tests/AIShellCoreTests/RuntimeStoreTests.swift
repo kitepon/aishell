@@ -2,7 +2,7 @@ import XCTest
 @testable import AIShellCore
 
 final class RuntimeStoreTests: XCTestCase {
-    func testPersistsConfigurationAndNewestActivityFirst() async throws {
+    func testPersistsNewestActivityFirst() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let runtime = fixture.base.appendingPathComponent("runtime", isDirectory: true)
@@ -13,7 +13,6 @@ final class RuntimeStoreTests: XCTestCase {
         let store = RuntimeStore(baseDirectory: runtime)
 
         await store.setWorkingDirectoryForTesting(allowed)
-        try await store.setPaused(true)
         try await store.appendActivity(OperationRecord(
             operation: "first",
             target: "a",
@@ -28,13 +27,13 @@ final class RuntimeStoreTests: XCTestCase {
         ))
 
         let configuration = try await store.loadConfiguration()
-        XCTAssertTrue(configuration.isPaused)
+        XCTAssertFalse(configuration.isPaused)
 
         let activities = try await store.loadRecentActivities(limit: 10)
         XCTAssertEqual(activities.map(\.operation), ["second", "first"])
     }
 
-    func testIgnoresLegacyRootsAndDropsThemOnSave() async throws {
+    func testLegacyUISettingsAreIgnoredAndPreserved() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let store = RuntimeStore(baseDirectory: fixture.base)
@@ -44,10 +43,8 @@ final class RuntimeStoreTests: XCTestCase {
         ] {
             try Data(legacy.utf8).write(to: store.configurationURL)
             let configuration = try await store.loadConfiguration()
-            XCTAssertTrue(configuration.isPaused)
-            try await store.saveConfiguration(configuration)
-            let saved = try String(contentsOf: store.configurationURL, encoding: .utf8)
-            XCTAssertFalse(saved.contains("allowedRoot"))
+            XCTAssertFalse(configuration.isPaused)
+            XCTAssertEqual(try String(contentsOf: store.configurationURL, encoding: .utf8), legacy)
         }
     }
 }

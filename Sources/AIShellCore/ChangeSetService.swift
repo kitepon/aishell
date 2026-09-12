@@ -1,7 +1,6 @@
 import CryptoKit
 import Darwin
 import Foundation
-import Security
 
 // MARK: - Public value contract
 
@@ -690,7 +689,7 @@ private actor ApplyChangeSetState {
     private var persistenceRevision: UInt64 = 0
     private var pendingJournalRepairs: [PendingJournalRepair] = []
 
-    init(base: URL, stateDirectory: URL, root: URL, disabled: Set<ApplyChangeSetCapability>, encryptionKey: SymmetricKey) throws {
+    init(base: URL, stateDirectory: URL, root: URL, disabled: Set<ApplyChangeSetCapability>, encryptionKey: SymmetricKey, legacyStateDirectory: URL? = nil) throws {
         self.base = base; self.stateDirectory = stateDirectory; self.root = root; self.encryptionKey = encryptionKey
         snapshotURL = stateDirectory.appendingPathComponent("apply-change-set-state.enc.json")
         if FileManager.default.fileExists(atPath: snapshotURL.path) {
@@ -743,10 +742,26 @@ private actor ApplyChangeSetState {
         } else {
             var namespaceInfo = stat()
             let namespace = root.appendingPathComponent(".aishell-transactions", isDirectory: true)
-            guard lstat(namespace.path, &namespaceInfo) != 0, errno == ENOENT else {
-                throw ApplyChangeSetError(.changeSetStoreCorrupt, "state snapshot is missing for an existing transaction namespace")
+            if lstat(namespace.path, &namespaceInfo) == 0 {
+                // 旧版の暗号化履歴はそのまま残す。編集中のファイルがないrootだけ、新しい状態を開始できる。
+                guard let legacyStateDirectory,
+                      FileManager.default.fileExists(atPath: legacyStateDirectory.appendingPathComponent("apply-change-set-state.enc.json").path),
+                      (namespaceInfo.st_mode & S_IFMT) == S_IFDIR, namespaceInfo.st_mode & 0o077 == 0,
+                      try FileManager.default.contentsOfDirectory(atPath: namespace.path).sorted() == ["marker.json"],
+                      let marker = try JSONSerialization.jsonObject(with: Data(contentsOf: namespace.appendingPathComponent("marker.json"))) as? [String: String],
+                      marker["schema"] == "aishell.apply-change-set-namespace.v1",
+                      marker["root"] == root.standardizedFileURL.resolvingSymlinksInPath().path,
+                      let previousGeneration = marker["generation"], !previousGeneration.isEmpty else {
+                    throw ApplyChangeSetError(.changeSetStoreCorrupt, "旧版の編集作業が残っているか、編集状態が欠けています。既存データは変更していません。")
+                }
+                var rootInfo = stat()
+                guard lstat(root.path, &rootInfo) == 0, marker["root_device"] == String(rootInfo.st_dev),
+                      marker["root_inode"] == String(rootInfo.st_ino) else { throw ApplyChangeSetError(.rootMismatch) }
+                generation = previousGeneration
+            } else {
+                guard errno == ENOENT else { throw ApplyChangeSetError(.changeSetStoreCorrupt) }
+                generation = UUID().uuidString.lowercased()
             }
-            generation = UUID().uuidString.lowercased()
             capabilities = Set(ApplyChangeSetCapability.allCases).subtracting(disabled)
             slots = (0..<64).map { ClientSlot(id: Self.stableUUID(slot: $0), epoch: 0, active: false, highWater: 0, replay: [:], nonterminal: false) }
             try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -1435,41 +1450,13 @@ public final class ApplyChangeSetSecretStore: @unchecked Sendable {
     fileprivate let state: ApplyChangeSetState
     fileprivate let key: SymmetricKey
 
-    public init(baseDirectory: URL, stateDirectory: URL, root: URL, disabledCapabilities: Set<ApplyChangeSetCapability> = []) throws {
-        let originalPath = stateDirectory.path
-        try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        let canonicalPath = stateDirectory.standardizedFileURL.path
+    public init(baseDirectory: URL, stateDirectory: URL, root: URL,
+                disabledCapabilities: Set<ApplyChangeSetCapability> = [], legacyStateDirectory: URL? = nil) throws {
         let snapshot = stateDirectory.appendingPathComponent("apply-change-set-state.enc.json")
-        let keyData: Data
-        if FileManager.default.fileExists(atPath: snapshot.path) {
-            // 旧版はdirectory作成前のpathで鍵を作った。既存snapshotの認証で旧鍵を識別し、
-            // compatibility storeが別の鍵を使用中でも、どちらの鍵も上書きしない。
-            var paths = [canonicalPath, originalPath]
-            if let resolved = realpath(stateDirectory.path, nil) {
-                paths.append(String(cString: resolved))
-                free(resolved)
-            }
-            var seen = Set<String>()
-            var matched: Data?
-            var authenticationFailure: Error?
-            for path in paths where seen.insert(path).inserted {
-                guard let candidate = try Self.readKey(account: path.applyStringSHA256) else { continue }
-                do {
-                    try ApplyChangeSetState.validateSnapshotKey(at: snapshot, key: SymmetricKey(data: candidate))
-                    matched = candidate
-                    break
-                } catch { authenticationFailure = error }
-            }
-            guard let matched else {
-                if let authenticationFailure { throw authenticationFailure }
-                throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "既存の暗号化状態に対応するKeychainの鍵がありません。")
-            }
-            keyData = matched
-        } else {
-            keyData = try Self.loadOrCreateKey(account: canonicalPath.applyStringSHA256)
-        }
-        key = SymmetricKey(data: keyData)
-        state = try ApplyChangeSetState(base: baseDirectory, stateDirectory: stateDirectory, root: root, disabled: disabledCapabilities, encryptionKey: key)
+        key = SymmetricKey(data: try LocalChangeSetKey.loadOrCreate(in: stateDirectory,
+            encryptedStateExists: FileManager.default.fileExists(atPath: snapshot.path)))
+        state = try ApplyChangeSetState(base: baseDirectory, stateDirectory: stateDirectory, root: root,
+            disabled: disabledCapabilities, encryptionKey: key, legacyStateDirectory: legacyStateDirectory)
     }
 
     public func issueOwnerProof(controlRequestID: String, action: ApplyChangeSetControlAction, root: URL, expiresAt: Date) throws -> String {
@@ -1505,35 +1492,8 @@ public final class ApplyChangeSetSecretStore: @unchecked Sendable {
         return zip(lhs, rhs).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
     }
 
-    private static func readKey(account: String) throws -> Data? {
-        guard NoninteractiveKeychain.configure() == errSecSuccess else {
-            throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "Keychainの非対話設定に失敗しました。編集は開始していません。")
-        }
-        let service = "dev.kitepon.aishell.apply-change-set"
-        let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account, kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne]
-        var item: CFTypeRef?
-        let readStatus = SecItemCopyMatching(query as CFDictionary, &item)
-        if readStatus == errSecSuccess, let data = item as? Data, data.count == 32 { return data }
-        guard readStatus == errSecItemNotFound else { throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "Keychain read failed: \(readStatus)") }
-        return nil
-    }
-
-    private static func loadOrCreateKey(account: String) throws -> Data {
-        if let existing = try readKey(account: account) { return existing }
-        let service = "dev.kitepon.aishell.apply-change-set"
-        var bytes = Data(count: 32)
-        let randomStatus = bytes.withUnsafeMutableBytes { buffer in SecRandomCopyBytes(kSecRandomDefault, 32, buffer.baseAddress!) }
-        guard randomStatus == errSecSuccess else { throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "CSPRNG failed") }
-        let add: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account, kSecValueData: bytes, kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
-        let addStatus = SecItemAdd(add as CFDictionary, nil)
-        if addStatus == errSecDuplicateItem { return try loadOrCreateKey(account: account) }
-        guard addStatus == errSecSuccess else { throw ApplyChangeSetError(.changeSetSecretStoreUnavailable, "Keychain write failed: \(addStatus)") }
-        return bytes
-    }
-
     static func removeKeyForTesting(stateDirectory: URL) {
-        let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: "dev.kitepon.aishell.apply-change-set", kSecAttrAccount: stateDirectory.standardizedFileURL.path.applyStringSHA256]
-        SecItemDelete(query as CFDictionary)
+        try? FileManager.default.removeItem(at: stateDirectory.appendingPathComponent(LocalChangeSetKey.filename))
     }
 }
 
@@ -2029,7 +1989,10 @@ public actor ApplyChangeSetService {
         workspaceRuntime: WorkspaceStateRuntime
     ) async throws -> ApplyChangeSetService {
         let evidenceStore = EvidenceStore(baseDirectory: stateDirectory.appendingPathComponent("evidence", isDirectory: true))
-        let secretStore = try ApplyChangeSetSecretStore(baseDirectory: stateDirectory, stateDirectory: stateDirectory, root: root)
+        let legacyDirectory = runtimeStore.baseDirectory.appendingPathComponent("apply-change-set", isDirectory: true)
+            .appendingPathComponent(root.path.applyStringSHA256, isDirectory: true)
+        let secretStore = try ApplyChangeSetSecretStore(baseDirectory: stateDirectory, stateDirectory: stateDirectory,
+            root: root, legacyStateDirectory: legacyDirectory)
         let service = try ApplyChangeSetService(runtimeStore: runtimeStore, stateDirectory: stateDirectory,
             evidenceStore: evidenceStore, secretStore: secretStore, workspaceRuntime: workspaceRuntime,
             failureInjector: ApplyChangeSetFailureInjector(), clock: ApplyChangeSetTestClock())

@@ -31,34 +31,6 @@ async function installed(spec, env) {
   return false;
 }
 
-export function prepareManager() {
-  const binary = path.join(packageDirectory, 'dist/AIShell.app/Contents/Helpers/aishell-mcp');
-  let value;
-  try { value = JSON.parse(execFileSync(binary, ['--prepare-manager'], { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] })); }
-  catch { throw new SetupError('MANAGER_PREPARATION_FAILED', '管理アプリの準備に失敗しました。aishell-openで状態を確認してください。'); }
-  if (!Number.isInteger(value.processIdentifier) || value.processIdentifier <= 0) throw new SetupError('MANAGER_PREPARATION_FAILED', '管理アプリの実行確認が返りませんでした。');
-  return { ready: true, processIdentifier: value.processIdentifier };
-}
-
-export function prepareKeychain({ check, env }, run = execFileSync) {
-  const binary = path.join(packageDirectory, 'dist/AIShell.app/Contents/Helpers/aishell-mcp');
-  const invoke = argument => {
-    const result = JSON.parse(run(binary, [argument], {
-      env, encoding: 'utf8', timeout: argument === '--prepare-keychain' ? 300000 : 30000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }));
-    if (result.ready !== true || !Number.isInteger(result.checkedKeys) || result.checkedKeys < 0) throw new Error('invalid keychain result');
-    return result;
-  };
-  try {
-    if (!check) invoke('--prepare-keychain');
-    // 対話processだけの一時許可をreadyとしない。別processで非対話の読取りを確認する。
-    return invoke('--check-keychain');
-  } catch {
-    throw new SetupError('KEYCHAIN_NOT_READY', '導入済みhelperから既存の鍵の読取りを確認できません。aishell-setupを実行し、macOSの認証画面が出た場合は「常に許可」を選んでください。');
-  }
-}
-
 export async function smoke(registration, expectedVersion, { env = process.env } = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'aishell-setup-smoke-'));
   try {
@@ -68,7 +40,7 @@ export async function smoke(registration, expectedVersion, { env = process.env }
       const list = await request('tools/list', {});
       if (!list?.tools?.some(tool => tool.name === 'workspace_snapshot') || !list.tools.some(tool => tool.name === 'apply_change_set')) throw new SetupError('MCP_CAPABILITY_MISMATCH', 'expanded-v1の開発toolを利用できません。AISHELL_TOOL_PROFILEなどのenvを確認してください。');
       const status = (await call('runtime_status')).structuredContent;
-      if (status?.isPaused !== false) throw new SetupError('RUNTIME_NOT_READY', 'AIShellが停止中か、状態を確認できません。管理アプリで再開してから再実行してください。');
+      if (status?.isPaused !== false) throw new SetupError('RUNTIME_NOT_READY', 'AIShellが停止中か、状態を確認できません。実行状態の応答を確認してください。');
       const snapshot = (await call('workspace_snapshot', { path: directory, context_budget: 0, entry_limit: 10, project_profile: { mode: 'none' } })).structuredContent;
       if (snapshot?.freshness !== 'fresh' || !snapshot.entries?.some(entry => entry.path === 'probe.txt' || entry.relativePath === 'probe.txt' || entry.path === path.join(directory, 'probe.txt'))) throw new SetupError('MCP_SMOKE_FAILED', '未登録フォルダの実fileをMCPで確認できません。');
       return { version: initialized.serverInfo.version, toolCount: list.tools.length, operation: 'workspace_snapshot', ready: true };
@@ -90,30 +62,14 @@ export async function setup(options = {}, dependencies = {}) {
     if (await installed(spec, env)) chosen.push(hostSpec(ai, home, env));
   }
   if (!chosen.length) throw new SetupError('AI_NOT_FOUND', '対応AIを検出できません。対象を--ai claude,codex,grok,cursorで指定してください。');
-  const report = { schemaVersion: 'aishell.setup.v1', mode: options.check ? 'diagnose' : 'setup', platform: { os: platform, arch, version: macVersion }, manager: null, hosts: [], skipped: aiNames.filter(ai => !chosen.some(spec => spec.ai === ai)) };
+  const report = { schemaVersion: 'aishell.setup.v1', mode: options.check ? 'diagnose' : 'setup', platform: { os: platform, arch, version: macVersion }, hosts: [], skipped: aiNames.filter(ai => !chosen.some(spec => spec.ai === ai)) };
   const version = dependencies.version ?? JSON.parse(await (await import('node:fs/promises')).readFile(path.join(packageDirectory, 'package.json'), 'utf8')).version;
   const backupDirectory = path.join(home, 'Library/Application Support/AIShell/setup-backups');
   let stage = 'preflight';
   try {
-    // 全対象を先に解析する。壊れた設定があるままappや別AIを更新しない。
+    // 全対象を先に解析する。壊れた設定があるまま別AIを更新しない。
     const plans = [];
     for (const spec of chosen) plans.push(await planHost(spec));
-    if (!options.check) {
-      stage = 'prepare';
-      report.manager = await (dependencies.prepare ?? prepareManager)();
-    }
-    stage = 'keychain';
-    const keychains = new Map();
-    report.keychain = [];
-    for (const plan of plans) {
-      const keychainEnv = { ...env, ...plan.registration.env };
-      const statePath = keychainEnv.AISHELL_STATE_DIRECTORY ?? '';
-      if (!keychains.has(statePath)) {
-        const result = await (dependencies.keychain ?? prepareKeychain)({ check: Boolean(options.check), env: keychainEnv });
-        keychains.set(statePath, result);
-        report.keychain.push(result);
-      }
-    }
     for (const plan of plans) {
       stage = `register:${plan.spec.ai}`;
       if (!options.check) await (dependencies.write ?? writeHost)(plan, backupDirectory);

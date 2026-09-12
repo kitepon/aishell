@@ -16,7 +16,7 @@ List the focused commands and results. Do not mark unrun checks as passing.
 
 - [ ] Focused tests
 - [ ] `swift test`
-- [ ] `scripts/package-app.sh release`
+- [ ] `npm run build:npm`
 - [ ] MCP fixtures or package payload, when applicable
 
 ## Public impact

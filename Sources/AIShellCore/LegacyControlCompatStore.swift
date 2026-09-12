@@ -1,7 +1,6 @@
 import CryptoKit
 import Darwin
 import Foundation
-import Security
 
 public struct LegacyControlCompatReceipt: Codable, Equatable, Sendable {
     public let expiresAt: Date
@@ -469,36 +468,9 @@ public actor LegacyControlCompatStore {
     }
 
     private static func loadOrCreateRootKey(stateDirectory: URL) throws -> Data {
-        guard NoninteractiveKeychain.configure() == errSecSuccess else {
-            throw LegacyControlCompatStoreError(.secretStoreUnavailable, "Keychainの非対話設定に失敗しました。")
-        }
-        let account = sha256(Data(stateDirectory.standardizedFileURL.path.utf8))
-        let service = "dev.kitepon.aishell.apply-change-set"
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword, kSecAttrService: service,
-            kSecAttrAccount: account, kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne
-        ]
-        var item: CFTypeRef?
-        let read = SecItemCopyMatching(query as CFDictionary, &item)
-        if read == errSecSuccess, let data = item as? Data, data.count == 32 { return data }
-        guard read == errSecItemNotFound else {
-            throw LegacyControlCompatStoreError(.secretStoreUnavailable, "Keychain read failed: \(read)")
-        }
-        var key = Data(count: 32)
-        guard key.withUnsafeMutableBytes({ SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!) }) == errSecSuccess else {
-            throw LegacyControlCompatStoreError(.secretStoreUnavailable, "CSPRNG failed")
-        }
-        let add: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword, kSecAttrService: service,
-            kSecAttrAccount: account, kSecValueData: key,
-            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        ]
-        let status = SecItemAdd(add as CFDictionary, nil)
-        if status == errSecDuplicateItem { return try loadOrCreateRootKey(stateDirectory: stateDirectory) }
-        guard status == errSecSuccess else {
-            throw LegacyControlCompatStoreError(.secretStoreUnavailable, "Keychain write failed: \(status)")
-        }
-        return key
+        try LocalChangeSetKey.loadOrCreate(in: stateDirectory,
+            encryptedStateExists: FileManager.default.fileExists(atPath:
+                stateDirectory.appendingPathComponent("apply-change-set-state.enc.json").path))
     }
 
     private static func bankURL(_ bank: Bank, in directory: URL) -> URL {

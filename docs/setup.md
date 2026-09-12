@@ -1,7 +1,7 @@
 # 製品単体の導入・診断契約
 
 AIShellの明示入口は`aishell-setup`。macOS 15以降のApple Silicon（arm64）で、
-管理アプリの準備、既存Keychain鍵の読取り、AIへのMCP登録、設定の読戻し、登録内容による実操作を順に確認する。
+AIへのMCP登録、設定の読戻し、登録内容による実操作を順に確認する。
 Windows、Linux、Intel Mac、macOS 14以前は`PLATFORM_UNSUPPORTED`で終了し、設定も常駐processも作らない。
 npm packageの`os`/`cpu`制約も維持する。
 
@@ -40,37 +40,30 @@ envや他の設定内容は診断へ出さない。
 対象AIのCLI（`claude`、`codex`、`grok`、Cursorの`agent`）が必要。設定folderだけが残りCLIがない場合は
 `AI_CLI_NOT_FOUND`で終了し、AI本体で未確認の登録を成功扱いにしない。
 
-## 管理アプリ
+## 管理UIと認証
 
-npm installには`preinstall`、`install`、`postinstall`を持たせない。
-`aishell-setup`を明示実行した時だけ、bundle内のnative helperが既存の
-`NativeApplicationService`を使い、旧管理アプリを正常終了して導入済みアプリを開く。
-更新前のbundleを参照する窓を残さず、LaunchServicesが返した実processとbundleを確認する。
-終了・起動の失敗を`MANAGER_PREPARATION_FAILED`として返し、設定登録へ進まない。
-LaunchAgentやlogin itemは作らない。`aishell-open`は管理アプリを開く既存入口として残る。
+管理UI、停止設定、Keychainアクセスは廃止した。npm installには`preinstall`、`install`、`postinstall`を持たせず、setupも認証画面や管理アプリを起動しない。
+配布物は`dist/aishell-mcp`と`dist/aishell-run-supervisor`。`aishell-open`は配布しない。
+`runtime_open_manager`は既存呼出元の互換名として残し、`MANAGER_REMOVED`を返す。
+旧`runtime.json`は保持するが、停止状態や不正な内容で操作を妨げない。
 
-`--check`はアプリの起動・再起動とAI設定変更を行わない。MCPの一時processを起動し、
-実操作後に回収する。AIShellの停止状態は保持し、停止中は`RUNTIME_NOT_READY`で再開方法を案内する。
-診断のための一時folderは削除する。MCPが所有する通常の活動記録・保持stateは製品契約に従う。
-AI本体の診断CLIが作るcache等は各AIが所有する。
+`--check`はAI設定を変更せず、一時的なMCPで実操作を確認して終了する。
+使用ログは`~/Library/Application Support/AIShell/activity.jsonl`へ保存する。
 
-## 保存済みの編集状態とKeychain
+## 編集状態の更新
 
-setupは対象AIの実効`AISHELL_STATE_DIRECTORY`ごとに、保存済みの編集状態に対応する鍵を
-導入済みhelperで読み取る。診断結果の`keychain`には確認件数だけを返し、鍵やaccountは出さない。
-通常のMCP要求と`--check`は非対話のまま認証失敗を返す。
+複数ファイル編集、競合検出、差分の保持、再起動後の継続は維持する。
+新しい編集状態は`AISHELL_STATE_DIRECTORY`（省略時は`~/Library/Application Support/AIShell`）の
+`apply-change-set-local-v1/`へ保存する。内部の鍵は0600の`state-key`に保存し、同時起動時も同じ鍵を共有する。Keychainへの読取り・書込み・認証は行わない。
 
-更新後のhelperに読取り許可がない場合、明示setupだけがmacOSの認証画面を開く。
-利用者が「常に許可」を選んだ後、別processで非対話の読取りを再確認する。
-一時的な許可だけで次のMCPが読めない場合は`KEYCHAIN_NOT_READY`で終了し、AI登録へ進まない。
-ad-hoc署名は版をまたぐ同じ実行ファイルの識別を保証しないため、更新時に再認証が必要になる場合がある。
-setupは鍵の値、既存ACL、Keychainの検索先を自動変更しない。
+旧`apply-change-set/`の暗号化履歴とKeychain項目は変更しない。
+旧作業領域に`marker.json`だけがある対象では、rootの実体と記録の一致を確認して新しい状態を開始する。
+旧版の作業ファイルが残っている場合は`CHANGE_SET_STORE_CORRUPT`で停止し、ファイルを消さない。
+その場合は旧版で未完了編集を解決してから更新する必要がある。
+旧client receiptと編集取引の履歴は新しい状態へ移さない。通常のファイルと使用ログは維持する。
 
-新しい編集状態の鍵accountは保存directoryを作成した後の標準化pathから決める。
-旧版がdirectory作成前の別名pathで暗号化した状態は、標準化path・入力path・実pathの既存鍵を
-snapshotの認証で照合して開く。別のstoreが使う鍵も保持し、鍵の上書きや暗号化状態の再作成はしない。
-対応する鍵がない場合は`CHANGE_SET_SECRET_STORE_UNAVAILABLE`、どの既存鍵でも認証できない場合は
-`CHANGE_SET_STORE_CORRUPT`で終了する。
+新しい暗号化状態に対応する`state-key`が欠けた場合は`CHANGE_SET_SECRET_STORE_UNAVAILABLE`で終了し、別の鍵で上書きしない。
+取引開始前の失敗は`error.request_status: aborted_before_side_effect`と空の`changed_paths`で確認できる。
 
 ## AI設定
 
@@ -106,7 +99,7 @@ Cursor CLIはprojectごとにMCP承認を保存する。明示setupは現在のd
 各AIの設定を読戻し、command・args・envでMCPを実際に起動する。
 Codexの`mcp get`、Grokの`mcp list`、Claudeの`mcp get`で本体の実効登録を照合し、
 Cursorは`mcp list-tools`でexpanded toolの利用を確認する。本体の確認失敗もsetup失敗になる。
-`initialize`のprotocolとpackage版、`tools/list`のexpanded能力、`runtime_status`の停止状態を確認し、
+`initialize`のprotocolとpackage版、`tools/list`のexpanded能力、`runtime_status`の利用可能状態を確認し、
 事前登録のない一時folderに置いたfileを`workspace_snapshot`で確認する。
 設定読戻しだけ、process起動要求だけ、CI成功だけを実端末の導入成功とはしない。
 既存AIセッションのMCPは再接続または新しいセッションで新版へ切り替わる。
@@ -119,7 +112,7 @@ projectや組織による設定上書き・AIの承認操作は各AIが所有す
 ## 工場との境界
 
 工場は対応Macで公式npm導入後に`aishell-setup`を呼べばよい。
-管理アプリの準備、Claude/Codexの追加・削除による登録補正、Grok/Cursor設定内のAIShell項目の生成を
+Claude/Codexの追加・削除による登録補正、Grok/Cursor設定内のAIShell項目の生成を
 代行する必要はない。Windows/Linux向け工場設定からのAIShell削除は工場担当が行う。
 AIShellは工場repoと他製品の設定を編集しない。工場専用`factory_diagnostics`のschemaは
 [既存契約](factory-diagnostics.md)を維持し、対話host登録へfactory profileを混ぜない。

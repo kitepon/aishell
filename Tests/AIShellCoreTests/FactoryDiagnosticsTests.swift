@@ -24,7 +24,7 @@ final class FactoryDiagnosticsTests: XCTestCase {
         XCTAssertEqual(diagnostics.schemaVersion, "aishell.native_factory_diagnostics.v1")
         XCTAssertEqual(diagnostics.product.identifier, "aishell")
         XCTAssertEqual(diagnostics.product.version, AIShellProduct.version)
-        XCTAssertEqual(diagnostics.runtime.configurationState, "uninitialized")
+        XCTAssertEqual(diagnostics.runtime.configurationState, "not_required")
         XCTAssertEqual(diagnostics.runtime.operationReadiness, "ready")
         XCTAssertEqual(diagnostics.runtime.configuredRootCount, 0)
         XCTAssertTrue(diagnostics.manager.ready)
@@ -61,7 +61,7 @@ final class FactoryDiagnosticsTests: XCTestCase {
         XCTAssertFalse(text.contains("秘密の操作本文"))
     }
 
-    func testInvalidConfigurationIsTypedAndDoesNotThrow() async throws {
+    func testLegacyInvalidConfigurationDoesNotBlockOperations() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let runtime = fixture.base.appendingPathComponent("runtime", isDirectory: true)
@@ -74,11 +74,11 @@ final class FactoryDiagnosticsTests: XCTestCase {
             managerApplicationURL: manager, mcpReady: true
         )
 
-        XCTAssertEqual(diagnostics.runtime.configurationState, "invalid")
-        XCTAssertEqual(diagnostics.runtime.migrationStatus, "blocked")
-        XCTAssertEqual(diagnostics.runtime.operationReadiness, "invalid_configuration")
-        XCTAssertFalse(diagnostics.ready)
-        XCTAssertEqual(diagnostics.issues, ["runtime.invalid_configuration"])
+        XCTAssertEqual(diagnostics.runtime.configurationState, "not_required")
+        XCTAssertEqual(diagnostics.runtime.migrationStatus, "not_required")
+        XCTAssertEqual(diagnostics.runtime.operationReadiness, "ready")
+        XCTAssertTrue(diagnostics.ready)
+        XCTAssertTrue(diagnostics.issues.isEmpty)
     }
 
     func testMissingLegacyRootDoesNotBlockOperations() async throws {
@@ -95,7 +95,7 @@ final class FactoryDiagnosticsTests: XCTestCase {
             managerApplicationURL: manager, mcpReady: true
         )
 
-        XCTAssertEqual(diagnostics.runtime.configurationState, "valid")
+        XCTAssertEqual(diagnostics.runtime.configurationState, "not_required")
         XCTAssertEqual(diagnostics.runtime.operationReadiness, "ready")
         XCTAssertTrue(diagnostics.ready)
         XCTAssertTrue(diagnostics.issues.isEmpty)

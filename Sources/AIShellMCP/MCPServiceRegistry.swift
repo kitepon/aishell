@@ -72,7 +72,7 @@ actor MCPServiceRegistry {
     private static func stateDirectory(baseDirectory: URL, root: URL) -> URL {
         let digest = SHA256.hash(data: Data(root.path.utf8)).map { String(format: "%02x", $0) }.joined()
         return baseDirectory
-            .appendingPathComponent("apply-change-set", isDirectory: true)
+            .appendingPathComponent("apply-change-set-local-v1", isDirectory: true)
             .appendingPathComponent(digest, isDirectory: true)
     }
 

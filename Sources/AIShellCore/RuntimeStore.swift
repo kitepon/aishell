@@ -36,34 +36,8 @@ public actor RuntimeStore {
     }
 
     public func loadConfiguration() throws -> RuntimeConfiguration {
-        guard FileManager.default.fileExists(atPath: configurationURL.path) else {
-            return RuntimeConfiguration()
-        }
-
-        let data = try Data(contentsOf: configurationURL)
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(RuntimeConfiguration.self, from: data)
-    }
-
-    public func saveConfiguration(_ configuration: RuntimeConfiguration) throws {
-        try ensureBaseDirectory()
-        var updated = configuration
-        updated.updatedAt = Date()
-
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(updated)
-        try data.write(to: configurationURL, options: .atomic)
-    }
-
-    @discardableResult
-    public func setPaused(_ isPaused: Bool) throws -> RuntimeConfiguration {
-        var configuration = try loadConfiguration()
-        configuration.isPaused = isPaused
-        try saveConfiguration(configuration)
-        return configuration
+        // 管理UIの停止設定は廃止した。旧runtime.jsonは操作の条件にしない。
+        RuntimeConfiguration()
     }
 
     public func appendActivity(_ record: OperationRecord) throws {

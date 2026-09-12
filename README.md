@@ -39,7 +39,7 @@ Use workspace_snapshot for the initial workspace context. Run the focused tests 
 run_check, and read retained output with artifact_read only if the summary omits evidence.
 ```
 
-The default profile exposes five high-density development tools plus two always-available recovery controls:
+The default profile exposes five high-density development tools, runtime status, and the retired manager entrypoint:
 
 | Tool | Purpose |
 |---|---|
@@ -48,10 +48,10 @@ The default profile exposes five high-density development tools plus two always-
 | `search_context` | Budgeted lexical context from a directly launched `rg` worker, scoped to a directory or one regular file; the expanded capability also provides cursor-bound semantic definition/reference/symbol queries without lexical fallback |
 | `run_check` | Direct process execution, primary diagnostics, and complete stdout/stderr artifacts |
 | `artifact_read` | Range, tail, and pattern-centered reads from retained artifacts; the expanded capability also searches and compares finalized managed-run artifacts |
-| `runtime_status` | Pause, relative-path base, and next-action state |
-| `runtime_open_manager` | Open the manager app to pause or resume AI operations |
+| `runtime_status` | 実行状態と相対パスの基準 |
+| `runtime_open_manager` | 互換用の旧入口。管理UIの廃止を`MANAGER_REMOVED`で返す |
 
-Set `AISHELL_CAPABILITY_SET=expanded-v1` on the MCP server process to opt in to the candidate surface. It exposes nine high-density development tools plus the two recovery controls. The added tools are `run_observe`, `workspace_wait`, `change_impact`, and `apply_change_set`; existing tools gain closed managed-run, artifact query, semantic search, project-profile, and Git branch/worktree modes. Cross-run artifact operations require an explicit project path and reject live, expired, legacy-unbound, or different-project evidence instead of silently falling back to partial logs.
+Set `AISHELL_CAPABILITY_SET=expanded-v1` on the MCP server process to opt in to the candidate surface. It exposes nine high-density development tools, runtime status, and the retired manager entrypoint. The added tools are `run_observe`, `workspace_wait`, `change_impact`, and `apply_change_set`; existing tools gain closed managed-run, artifact query, semantic search, project-profile, and Git branch/worktree modes. Cross-run artifact operations require an explicit project path and reject live, expired, legacy-unbound, or different-project evidence instead of silently falling back to partial logs.
 
 For Codex, register the expanded surface explicitly:
 
@@ -75,7 +75,7 @@ Typical stateless integrations repeatedly ask the model to rediscover workspace 
 | Context | Bounded, cursor-based structured results | Unbounded or manually truncated stdout |
 | Execution | Executable URL, arguments, working directory, and lifecycle remain separate | A shell evaluates one command string |
 | Evidence | Complete stdout/stderr retained behind expiring handles | Evidence often disappears when the response is truncated |
-| Scope | macOS access permissions and explicit stop state | Depends on the surrounding shell and host policy |
+| Scope | macOS access permissions | Depends on the surrounding shell and host policy |
 
 AIShell is not a sandbox and does not make arbitrary code execution safe. Its process rails exist to preserve typed execution and observable lifecycle—not to stop renamed binaries or child processes launched by an allowed worker.
 
@@ -97,15 +97,14 @@ flowchart LR
 
 ## Install from npm
 
-global packageは`aishell-mcp`、`aishell-open`、`aishell-setup`を`PATH`へ追加する。npm install自体ではスクリプトも管理アプリも起動しない。
+global packageは`aishell-mcp`、`aishell-setup`を`PATH`へ追加する。npm install自体ではスクリプトも管理アプリも起動しない。
 
 対象AIのCLI（`claude`、`codex`、`grok`、Cursorの`agent`）を先に導入する。setupは各CLIからの読戻しも確認する。
 
-`aishell-setup`は導入済みのClaude Code・Codex・Grok Build・Cursorを検出し、管理アプリ準備、MCP登録、設定の読戻し、実際のMCP操作まで確認する。登録はbare `aishell-mcp`＋`AISHELL_CAPABILITY_SET=expanded-v1`。利用者のenv、PATH、他の設定を保持する。`--ai`で対象を指定でき、`--check`は設定やアプリ起動を変更せず診断する。Windows/LinuxとIntel Macは対象外。詳細は[製品単体の導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
+`aishell-setup`は導入済みのClaude Code・Codex・Grok Build・Cursorを検出し、MCP登録、設定の読戻し、実際のMCP操作まで確認する。登録はbare `aishell-mcp`＋`AISHELL_CAPABILITY_SET=expanded-v1`。利用者のenv、PATH、他の設定を保持する。`--ai`で対象を指定でき、`--check`は設定を変更せず診断する。Windows/LinuxとIntel Macは対象外。詳細は[製品単体の導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
 
-更新後も同じ`aishell-setup`を実行する。旧管理アプリを正常終了して導入済みのアプリを開き、登録保持・読戻し・MCP実操作まで確認する。接続済みのMCPは、hostで再接続すると新版へ切り替わる。
+更新後も同じ`aishell-setup`を実行する。登録保持・読戻し・MCP実操作まで確認する。管理UIとKeychain認証は不要。接続済みのMCPは、hostで再接続すると新版へ切り替わる。
 
-setupは保存済みの編集鍵を新版のhelperから読めることも確認する。macOSの認証画面が出た場合は「常に許可」を選ぶ。別processで非対話の読取りを確認できなければ`KEYCHAIN_NOT_READY`で終了する。通常のMCPと`--check`は認証画面を開かない。
 
 ```sh
 npm install -g @quolu/aishell && aishell-setup
@@ -119,11 +118,10 @@ The current experimental build is not yet Developer ID signed or notarized.
 git clone https://github.com/kitepon/aishell.git
 cd aishell
 swift test
-scripts/package-app.sh release
-open build/AIShell.app
+npm run build:npm
 ```
 
-The MCP executable is bundled at `build/AIShell.app/Contents/Helpers/aishell-mcp`.
+実行ファイルは`dist/aishell-mcp`と`dist/aishell-run-supervisor`へ生成する。
 
 フォルダ登録は不要です。絶対パスは指定した場所を、相対パスと省略時はMCP起動ディレクトリを基準にします。Git worktreeも直接指定できます。旧設定の許可フォルダ一覧は無視されます。
 
@@ -142,18 +140,18 @@ Remove the registration with:
 codex mcp remove aishell
 ```
 
-Without the expanded capability, the compatibility profile retains all 25 tools. The default seven are the five development tools plus the two recovery controls; full mode adds the remaining legacy primitives. With `expanded-v1`, development exposes 11 tools and full exposes 29:
+Without the expanded capability, the compatibility profile retains all 25 tools. The default seven are the five development tools plus runtime status and the retired manager entrypoint; full mode adds the remaining legacy primitives. With `expanded-v1`, development exposes 11 tools and full exposes 29:
 
 ```sh
 AISHELL_TOOL_PROFILE=full /opt/homebrew/bin/aishell-mcp
 AISHELL_CAPABILITY_SET=expanded-v1 AISHELL_TOOL_PROFILE=full /opt/homebrew/bin/aishell-mcp
 ```
 
-The full profile includes file listing and reads, atomic SHA-256-guarded updates, copy/move/rename/Trash, direct process execution, app discovery and launch, runtime status, and manager activation.
+The full profile includes file listing and reads, atomic SHA-256-guarded updates, copy/move/rename/Trash, direct process execution, app discovery and launch, runtime status.
 
-`apply_change_set`のKeychain認証が必要な場合は、UIを待たず`CHANGE_SET_SECRET_STORE_UNAVAILABLE`を返す。
-取引開始前の失敗は`error.request_status: aborted_before_side_effect`と空の`changed_paths`で確認できる。
-既存鍵のアクセス認証を解決してから再実行する。transport timeoutだけを編集中止の証拠にしない。
+`apply_change_set`はKeychainを使わない。操作の挙動、競合検出、差分、再起動後の継続を維持し、内部データの鍵は同じOSユーザーだけが読めるローカルファイルへ保存する。
+旧版の暗号化履歴は変更せず残し、未完了の編集ファイルがない対象では新しい状態で操作を開始する。
+使用ログは`~/Library/Application Support/AIShell/activity.jsonl`へ保存する。詳しくは[導入契約](https://github.com/kitepon/aishell/blob/main/docs/setup.md)を参照。
 
 ## Execution and safety boundaries
 
@@ -165,7 +163,7 @@ The full profile includes file listing and reads, atomic SHA-256-guarded updates
   scripts remain executable but cache-ineligible; AIShell does not infer arguments, inputs, or effects
   from shell script text.
 - Text updates may use SHA-256 or expected old text as a precondition. Deletes go to Trash.
-- The manager app can stop normal operations globally. Runtime status and manager activation remain available while stopped.
+- 管理UIと停止設定は廃止した。旧`runtime.json`は操作の条件にしない。
 
 ## Current limitations
 
@@ -184,8 +182,8 @@ initial installation, then run the explicit setup:
 npm install -g @quolu/aishell@latest && aishell-setup
 ```
 
-`runtime_status` and `runtime_open_manager` are the recovery entrypoints for a
-paused runtime. Factory consumers call `factory_diagnostics`
+`runtime_status`で実行状態を確認できる。管理UIは廃止済み。
+Factory consumers call `factory_diagnostics`
 through the dedicated `AISHELL_TOOL_PROFILE=factory` MCP surface; its schema and
 privacy boundary are owned by [the product contract](https://github.com/kitepon/aishell/blob/main/docs/factory-diagnostics.md).
 
@@ -224,17 +222,10 @@ MCPを再接続し、`initialize`のversion、`runtime_status`、事前登録の
 
 ```sh
 swift test
-scripts/package-app.sh release
+npm run build:npm
 ```
 
-Run `xcodegen generate` to regenerate `AIShell.xcodeproj`. The authoritative implementation lives under `Sources/AIShellCore`, `Sources/AIShellMCP`, and `Sources/AIShellApp`; focused tests live under `Tests/`.
-
-<details>
-<summary>Local Xcode verification note</summary>
-
-On the original verification machine, Xcode 26.6 and the installed CoreSimulator build version did not match, so `xcodebuild` stalled before XCBuild began. The same Swift 6.3.3 toolchain passed through SwiftPM. That host issue was not counted as source success.
-
-</details>
+実装は`Sources/AIShellCore`、`Sources/AIShellMCP`、`Sources/AIShellRunSupervisor`に置き、SwiftPMでbuildする。
 
 ## Contributing and security
 

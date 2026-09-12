@@ -50,7 +50,7 @@ final class NativeFileServiceTests: XCTestCase {
         XCTAssertTrue(activities.allSatisfy(\.success))
     }
 
-    func testPausedRuntimeRejectsOperations() async throws {
+    func testLegacyPauseDoesNotBlockOperations() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.cleanup() }
         let runtime = fixture.base.appendingPathComponent("runtime", isDirectory: true)
@@ -59,15 +59,12 @@ final class NativeFileServiceTests: XCTestCase {
 
         let store = RuntimeStore(baseDirectory: runtime)
         await store.setWorkingDirectoryForTesting(allowed)
-        try await store.setPaused(true)
+        try FileManager.default.createDirectory(at: runtime, withIntermediateDirectories: true)
+        try Data("{\"isPaused\":true}".utf8).write(to: store.configurationURL)
         let service = NativeFileService(store: store)
 
-        do {
-            _ = try await service.list()
-            XCTFail("停止中の操作が成功してしまいました。")
-        } catch {
-            XCTAssertEqual(error as? AIShellError, .paused)
-        }
+        let entries = try await service.list()
+        XCTAssertTrue(entries.isEmpty)
     }
 
     func testAbsolutePathWorksWithoutConfiguration() async throws {
