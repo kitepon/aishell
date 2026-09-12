@@ -63,3 +63,5 @@ read continuationは全対象のSHAへ結びつき、UTF-8の欠落・重複な�
 
 実際のdotagentsでも、context_pathsでWindows setupとagents-update.shを選択し、3対象読取りは1回・14,999本文bytes、行80〜110の読取り、期待SHA不一致のCONTENT_CHANGED、広いregexの8周辺blockが本文に届くことを確認した。検索recordは13,485 bytesで14,000の上限内だった。
 元repo、他製品の設定、Git除外設定は変更していない。今回の受入項目に未解決の不具合は残っていない。既存AIセッションのMCPは再接続すると新版へ切り替わる。
+
+0.7.6で追加修理したsnapshot再取得の性能と公開後受入は[別の実測記録](workspace-snapshot-warm-20260913.md)に記載した。

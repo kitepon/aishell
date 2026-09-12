@@ -48,6 +48,28 @@ node benchmarks/workspace-snapshot-warm.mjs /absolute/path/to/aishell-mcp /tmp/a
 | 2file変更warm | 7.992秒 |
 | restart | 21.408秒 |
 
-restartの初回filesystem照合は実施し、以後の同process再取得では全scanを反復しない。無変更内容のhash再利用はfocused testで確認した。時間はprovider token削減率を表さない。
+checkpointはdelta適用途中でも保存され、全件照合位置を永続化していない。このためrestartではfilesystemのmetadataを照合して基点を確立し、以後の同process再取得では全scanを反復しない。無変更内容のhash再利用はfocused testで確認した。時間はprovider token削減率を表さない。
 
-公開版での最終測定と導入確認は公開後に追記する。
+## 公開版の受入
+
+0.7.6をmainの`2d489732d21827a51216f2965a3ce73577d21399`から公開した。npmのgitHeadは同じcommit。
+[CI](https://github.com/kitepon/aishell/actions/runs/34713818366)と
+[公開workflow](https://github.com/kitepon/aishell/actions/runs/34714133996)は成功し、
+[GitHub Release](https://github.com/kitepon/aishell/releases/tag/v0.7.6)を作成した。
+
+`npm install -g @quolu/aishell@latest && aishell-setup`でMacを更新した。Claude・Codex・Grok・Cursorは登録変更なしで、全4hostが0.7.6、11tools、hostVerified、ready、workspace_snapshot成功となった。
+
+[公開版の測定と受入JSON](workspace-snapshot-warm-public.json)はnpmから導入したrelease buildを標準コマンドで新規起動した結果。全回198,516entry、返却5件、freshを保持した。
+
+| 条件 | 公開0.7.6 | checkpointState |
+|---|---:|---|
+| cold | 44.923秒 | missing |
+| 無変更warm | 6.043秒 | reconciled |
+| 2file変更warm | 6.176秒 | reconciled |
+| restart | 18.335秒 | restored |
+
+修正前のdebug buildとの速度比を製品効果量として主張しない。coldの初回全件読取りとrestartのmetadata照合は実施しており、同process warmの全域scan反復を解消した。
+
+公開版の実MCPで、削除、nested directory rename、同size同mtime書戻しのSHA、restart後のcursor継続、restart後の削除deltaを確認した。実dotagentsを読み取るsmokeでは、指定したsnapshot本文2件、3file読取り14,999byte、行80–110、誤った期待SHAへのCONTENT_CHANGED、検索周辺コード8block・13,485/14,000byteが成功した。元のdotagentsには書き込んでいない。
+
+新規MCPプロセスでの受入は完了した。起動済みの長寿命MCPには、AI hostが再接続してから新版が適用される。

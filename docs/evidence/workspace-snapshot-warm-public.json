@@ -1,0 +1,133 @@
+{
+  "request": {
+    "path": "/Users/kite/Developer/aishell",
+    "context_budget": 1800,
+    "entry_limit": 5,
+    "project_profile": {
+      "mode": "none"
+    },
+    "git_diff": {
+      "mode": "branch",
+      "base_ref": "17d56c1642643099e669fe079ce2645cd2009afc^",
+      "include_patch": false,
+      "byte_budget": 3500
+    }
+  },
+  "measurements": [
+    {
+      "phase": "cold",
+      "version": "0.7.6",
+      "elapsedMs": 44923,
+      "entryCount": 198516,
+      "returnedEntries": 5,
+      "checkpointState": "missing",
+      "freshness": "fresh"
+    },
+    {
+      "phase": "unchanged-warm",
+      "version": "0.7.6",
+      "elapsedMs": 6043,
+      "entryCount": 198516,
+      "returnedEntries": 5,
+      "checkpointState": "reconciled",
+      "freshness": "fresh"
+    },
+    {
+      "phase": "two-file-change-warm",
+      "version": "0.7.6",
+      "elapsedMs": 6176,
+      "entryCount": 198516,
+      "returnedEntries": 5,
+      "checkpointState": "reconciled",
+      "freshness": "fresh"
+    },
+    {
+      "phase": "restart-warm",
+      "version": "0.7.6",
+      "elapsedMs": 18335,
+      "entryCount": 198516,
+      "returnedEntries": 5,
+      "checkpointState": "restored",
+      "freshness": "fresh"
+    }
+  ],
+  "sourceCommit": "2d489732d21827a51216f2965a3ce73577d21399",
+  "build": "npm release",
+  "setup": {
+    "schemaVersion": "aishell.setup.v1",
+    "mode": "setup",
+    "platform": {
+      "os": "darwin",
+      "arch": "arm64",
+      "version": "26.6.1"
+    },
+    "hosts": [
+      {
+        "ai": "claude",
+        "registration": "unchanged",
+        "ready": true,
+        "hostVerified": true,
+        "version": "0.7.6",
+        "toolCount": 11,
+        "operation": "workspace_snapshot"
+      },
+      {
+        "ai": "codex",
+        "registration": "unchanged",
+        "ready": true,
+        "hostVerified": true,
+        "version": "0.7.6",
+        "toolCount": 11,
+        "operation": "workspace_snapshot"
+      },
+      {
+        "ai": "grok",
+        "registration": "unchanged",
+        "ready": true,
+        "hostVerified": true,
+        "version": "0.7.6",
+        "toolCount": 11,
+        "operation": "workspace_snapshot"
+      },
+      {
+        "ai": "cursor",
+        "registration": "unchanged",
+        "ready": true,
+        "hostVerified": true,
+        "version": "0.7.6",
+        "toolCount": 11,
+        "operation": "workspace_snapshot"
+      }
+    ],
+    "skipped": [],
+    "status": "ready"
+  },
+  "workspaceSmoke": {
+    "version": "0.7.6",
+    "fullWarm": "reconciled",
+    "deletion": true,
+    "nestedRename": true,
+    "sameSizeAndMtime": true,
+    "restartCursor": true,
+    "deltaDeletion": true,
+    "status": "passed"
+  },
+  "contextSmoke": {
+    "version": "0.7.6",
+    "tools": 11,
+    "snapshotTargets": [
+      "bin/setup-windows-native-factory.ps1",
+      "bin/agents-update.sh"
+    ],
+    "readTargets": 3,
+    "readBytes": 14999,
+    "range": [
+      80,
+      110
+    ],
+    "shaMismatch": "CONTENT_CHANGED",
+    "searchBlocks": 8,
+    "searchBytes": 13485,
+    "status": "passed"
+  }
+}
