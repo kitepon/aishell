@@ -53,7 +53,7 @@ upgradeされた窓の検知は、app側（`InstallationIntegrity`）だけを�
 - npmに特定repositoryの公開workflowを登録すると、そのworkflowはOIDCによって自動認証できる。直接公開を許可したジョブでは、毎回のTouch ID操作と長期npm tokenを必要としない。
 - GitHub ActionsはGitHub管理のrunnerを使う必要がある。既存のself-hosted runnerをそのまま公開元にはできない。
 - 2026-09-03以降の新規設定ではstage公開が既定になる。毎回の承認を必要としない直接公開には、登録時に `npm publish` を許可する必要がある。
-- 初回のnpm設定とworkflow追加は必要。この確認時点では提案だけで、AIShellの公開方式は変更していない。
+- 初回のnpm設定とworkflow追加は必要。同日の依頼で設定し、公開入口を[製品workflow](../.github/workflows/publish.yml)へ移した。
 - 0.7.2公開ではログインが有効でもWebAuthn認証が一度要求された。公開後のglobal install、4つのAIのsetup確認、編集・削除・工場診断では認証を要求されなかった。
 
 ## 初回配布時の実測（0.3.1の履歴）
@@ -65,3 +65,10 @@ upgradeされた窓の検知は、app側（`InstallationIntegrity`）だけを�
 - npm導入後のhelperはdefault profileで高密度5 tool、`AISHELL_TOOL_PROFILE=full`で25 toolを公開
 - npm導入後のMCP initializeはversion `0.3.1`を返却
 - npm導入後のapp bundleでstrict deep code-signature検証成功
+
+## 自動公開の実測（2026-09-12）
+
+- 初回登録は[npm trust公式CLI](https://docs.npmjs.com/cli/v12/commands/npm-trust/)を使った（[[raw/npm-trust-cli-20260912]]）。`npm trust github @quolu/aishell --file publish.yml --repo kitepon/aishell --allow-publish --yes --browser=false`で公開元を登録した。この登録時だけWebAuthn認証を通した。
+- [0.7.3の公開run](https://github.com/kitepon/aishell/actions/runs/34692592310)はタグpushから起動し、配布物検査、OIDCによるnpm直接公開、GitHub Release作成がすべて成功した。npmへの長期tokenはworkflowへ登録していない。
+- [公開版](https://github.com/kitepon/aishell/releases/tag/v0.7.3)にはGitHub Actionsの来歴証明が付いた。公開jobのnpm出力にも来歴証明の署名と公開成功が記録された。公開時のTouch ID操作は発生しなかった。
+- 公開jobは既存の`prepublishOnly`で祖先確認と配布物検査を一度実行し、その後の`npm publish --ignore-scripts`でlifecycleの同じbuildを繰り返さない。通常CIの別runの結果を待つgateは追加していない。
