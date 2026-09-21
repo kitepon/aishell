@@ -84,7 +84,7 @@ final class ChangeSetPlainStateTests: XCTestCase {
             XCTAssertEqual(lstat(root.path, &info), 0)
             try JSONSerialization.data(withJSONObject: ["schema": "aishell.apply-change-set-namespace.v1",
                 "root": root.path, "generation": UUID().uuidString.lowercased(),
-                "root_device": String(info.st_dev), "root_inode": String(info.st_ino)])
+                "root_device": "99999999", "root_inode": String(info.st_ino)])
                 .write(to: namespace.appendingPathComponent("marker.json"))
         }
         func cleanup() { try? FileManager.default.removeItem(at: base) }

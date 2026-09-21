@@ -734,8 +734,7 @@ private actor ApplyChangeSetState {
                     throw ApplyChangeSetError(.changeSetStoreCorrupt, "旧版の編集作業が残っているか、編集状態が欠けています。既存データは変更していません。")
                 }
                 var rootInfo = stat()
-                guard lstat(root.path, &rootInfo) == 0, marker["root_device"] == String(rootInfo.st_dev),
-                      marker["root_inode"] == String(rootInfo.st_ino) else { throw ApplyChangeSetError(.rootMismatch) }
+                guard lstat(root.path, &rootInfo) == 0, marker["root_inode"] == String(rootInfo.st_ino) else { throw ApplyChangeSetError(.rootMismatch) }
                 generation = previousGeneration
             } else {
                 guard errno == ENOENT else { throw ApplyChangeSetError(.changeSetStoreCorrupt) }
@@ -1941,7 +1940,7 @@ public actor ApplyChangeSetService {
         let marker = ns.appendingPathComponent("marker.json")
         var rootInfo = stat()
         guard lstat(canonical.path, &rootInfo) == 0, (rootInfo.st_mode & S_IFMT) == S_IFDIR else { throw ApplyChangeSetError(.rootMismatch) }
-        let rootDevice = String(rootInfo.st_dev), rootInode = String(rootInfo.st_ino)
+        let rootInode = String(rootInfo.st_ino)
         var isDir: ObjCBool = false
         if FileManager.default.fileExists(atPath: ns.path, isDirectory: &isDir) {
             let attrs = try FileManager.default.attributesOfItem(atPath: ns.path)
@@ -1950,7 +1949,7 @@ public actor ApplyChangeSetService {
                   let data = try? Data(contentsOf: marker),
                   let object = try? JSONSerialization.jsonObject(with: data) as? [String: String],
                   object["schema"] == "aishell.apply-change-set-namespace.v1", object["root"] == canonical.path,
-                  object["generation"] == state.generation, object["root_device"] == rootDevice,
+                  object["generation"] == state.generation,
                   object["root_inode"] == rootInode else {
                 throw ApplyChangeSetError(.reservedNamespaceConflict)
             }
@@ -1959,7 +1958,7 @@ public actor ApplyChangeSetService {
             return
         }
         try FileManager.default.createDirectory(at: ns, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-        let data = try JSONSerialization.data(withJSONObject: ["schema": "aishell.apply-change-set-namespace.v1", "root": canonical.path, "generation": state.generation, "root_device": rootDevice, "root_inode": rootInode, "nonce": UUID().uuidString.lowercased()], options: [.sortedKeys])
+        let data = try JSONSerialization.data(withJSONObject: ["schema": "aishell.apply-change-set-namespace.v1", "root": canonical.path, "generation": state.generation, "root_inode": rootInode, "nonce": UUID().uuidString.lowercased()], options: [.sortedKeys])
         try data.write(to: marker, options: [.atomic])
         try await state.persist()
         try await ensureDedicatedStoreCutover()
@@ -3690,7 +3689,7 @@ public actor ApplyChangeSetService {
                 throw ApplyChangeSetError(.changeSetRecoveryRequired, "trash result identity mismatch")
             }
             var resultInfo = stat()
-            guard lstat(result.path, &resultInfo) == 0, UInt64(resultInfo.st_dev) == intent.device, UInt64(resultInfo.st_ino) == intent.inode else {
+            guard lstat(result.path, &resultInfo) == 0, UInt64(resultInfo.st_ino) == intent.inode else {
                 throw ApplyChangeSetError(.changeSetRecoveryRequired, "trash result inode mismatch")
             }
             await state.recordTrashReceipt(transaction, record: .init(changeID: intent.changeID, sourcePath: intent.sourcePath,
@@ -3708,13 +3707,12 @@ public actor ApplyChangeSetService {
     private static func findTrashCandidates(intent: DurableTrashRecord) throws -> [URL] {
         let root = URL(fileURLWithPath: intent.trashRootPath, isDirectory: true)
         var rootInfo = stat()
-        guard lstat(root.path, &rootInfo) == 0, UInt64(rootInfo.st_dev) == intent.trashRootDevice,
-              UInt64(rootInfo.st_ino) == intent.trashRootInode else { throw ApplyChangeSetError(.changeSetRecoveryRequired, "Trash root identity changed") }
+        guard lstat(root.path, &rootInfo) == 0, UInt64(rootInfo.st_ino) == intent.trashRootInode else { throw ApplyChangeSetError(.changeSetRecoveryRequired, "Trash root identity changed") }
         var matches: [URL] = []
         guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey]) else { return [] }
         for case let url as URL in enumerator {
             var info = stat()
-            guard lstat(url.path, &info) == 0, UInt64(info.st_dev) == intent.device, UInt64(info.st_ino) == intent.inode,
+            guard lstat(url.path, &info) == 0, UInt64(info.st_ino) == intent.inode,
                   (try? Data(contentsOf: url).applySHA256) == intent.sha256 else { continue }
             matches.append(url)
         }
@@ -3871,6 +3869,11 @@ public actor ApplyChangeSetService {
         }
     }
 
+    // 保存形式device:inodeのうち、OS再起動で変わるdevice番号は照合しない。
+    private static func storedInode(_ identity: String?) -> UInt64? {
+        identity?.split(separator: ":").last.flatMap { UInt64($0) }
+    }
+
     private static func completeInterruptedCommit(
         _ request: ApplyChangeSetRequest,
         transaction: ApplyChangeSetTransactionID,
@@ -3899,7 +3902,7 @@ public actor ApplyChangeSetService {
               let stageIdentities = manifest["stage_identity"] as? [String: String] else { throw ApplyChangeSetError(.changeSetStoreCorrupt) }
         for (path, descriptor) in pinned {
             var info = stat()
-            guard fstat(descriptor.parent, &info) == 0, parentIdentities[path] == "\(info.st_dev):\(info.st_ino)" else {
+            guard fstat(descriptor.parent, &info) == 0, Self.storedInode(parentIdentities[path]) == UInt64(info.st_ino) else {
                 throw ApplyChangeSetError(.externalConflictDuringCommit, "parent identity changed before roll-forward")
             }
         }
@@ -3934,8 +3937,8 @@ public actor ApplyChangeSetService {
             let targetSHA = desiredSHA[path]
             if let targetSHA {
                 var currentInfo = stat()
-                let currentIdentity = fstatat(descriptor.parent, descriptor.leaf, &currentInfo, AT_SYMLINK_NOFOLLOW) == 0 ? "\(currentInfo.st_dev):\(currentInfo.st_ino)" : nil
-                guard let expectedIdentity = stageIdentities[path] else { throw ApplyChangeSetError(.changeSetStoreCorrupt, "stage identity is missing") }
+                let currentIdentity = fstatat(descriptor.parent, descriptor.leaf, &currentInfo, AT_SYMLINK_NOFOLLOW) == 0 ? UInt64(currentInfo.st_ino) : nil
+                guard let expectedIdentity = Self.storedInode(stageIdentities[path]) else { throw ApplyChangeSetError(.changeSetStoreCorrupt, "stage identity is missing") }
                 guard let stageIndex = outputPaths.firstIndex(of: path) else { throw ApplyChangeSetError(.changeSetStoreCorrupt) }
                 let stageID = "stage_\(stageIndex)"
                 if current?.applySHA256 == targetSHA, currentIdentity == expectedIdentity {
@@ -3998,7 +4001,7 @@ public actor ApplyChangeSetService {
         for (path, descriptor) in pinned {
             var info = stat()
             guard fstat(descriptor.parent, &info) == 0,
-                  parentIdentities[path] == "\(info.st_dev):\(info.st_ino)" else {
+                  Self.storedInode(parentIdentities[path]) == UInt64(info.st_ino) else {
                 throw ApplyChangeSetError(.externalConflictDuringCommit, "parent identity changed before recovery")
             }
         }
@@ -4995,6 +4998,28 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
     }
     public func prepareRecoverableTransaction(service: ApplyChangeSetService, request: ApplyChangeSetRequest) async throws -> ApplyChangeSetTransactionID { let id=ApplyChangeSetTransactionID(request.transactionIdentity); await state.storeTransaction(.init(id:id,request:request,state:.recoveryRequired,corrupt:false,materialExists:true,retention:.pinned,admitted:true,targetReceipts:0)); if let index = await state.slots.firstIndex(where:{$0.id==request.clientID}) { await state.setNonterminal(index) }; return id }
     public func deleteRequest(root: URL, client: ApplyChangeSetClient, service: ApplyChangeSetService) async throws -> ApplyChangeSetRequest { let path="delete-only"; try Data("delete".utf8).write(to:root.appendingPathComponent(path)); return try await request(root:root,client:client,service:service,changes:[.delete(id:"delete",path:path,expected:.file(Data("delete".utf8).applySHA256))]) }
+    public func replaceTrashDevicesForTesting(for request: ApplyChangeSetRequest, service: ApplyChangeSetService, moveCandidate: Bool) async throws {
+        let transaction = ApplyChangeSetTransactionID(request.transactionIdentity)
+        let intents = await state.transactions[transaction]?.trashIntents ?? [:]
+        precondition(!intents.isEmpty)
+        for intent in intents.values {
+            var trashRoot = URL(fileURLWithPath: intent.trashRootPath)
+            if moveCandidate {
+                // Trash列挙のOS権限に依存せず、移動済みファイルの復旧を再現する。
+                trashRoot = stateDirectory.appendingPathComponent("test-trash", isDirectory: true)
+                try FileManager.default.createDirectory(at: trashRoot, withIntermediateDirectories: true)
+                let candidate = URL(fileURLWithPath: intent.candidatePath)
+                try FileManager.default.moveItem(at: candidate, to: trashRoot.appendingPathComponent(candidate.lastPathComponent))
+            }
+            var rootInfo = stat()
+            guard lstat(trashRoot.path, &rootInfo) == 0 else { throw ApplyChangeSetError(.changeSetStoreCorrupt) }
+            await state.recordTrashIntent(transaction, record: .init(changeID: intent.changeID, sourcePath: intent.sourcePath,
+                candidatePath: intent.candidatePath, resultingPath: intent.resultingPath, device: 99_999_999,
+                inode: intent.inode, sha256: intent.sha256, trashRootPath: trashRoot.path,
+                trashRootDevice: 99_999_999, trashRootInode: UInt64(rootInfo.st_ino)))
+        }
+        try await service.syncDedicatedTransactionForTesting(transaction)
+    }
     public func installTrashAmbiguity(for request: ApplyChangeSetRequest,
         ambiguity: ApplyChangeSetTrashRecoveryAmbiguity) async throws {
         let transaction = ApplyChangeSetTransactionID(request.transactionIdentity)
@@ -5095,6 +5120,30 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
     }
     public func manifestDigest(for request: ApplyChangeSetRequest) async throws -> String? {
         await state.transactions[ApplyChangeSetTransactionID(request.transactionIdentity)]?.manifestDigest
+    }
+    public func replaceManifestDeviceForTesting(for request: ApplyChangeSetRequest, service: ApplyChangeSetService) async throws {
+        let transaction = ApplyChangeSetTransactionID(request.transactionIdentity)
+        let manifestURL = root.appendingPathComponent(".aishell-transactions/\(transaction.rawValue)/manifest.json")
+        let before = try Data(contentsOf: manifestURL)
+        var manifest = try JSONSerialization.jsonObject(with: before) as! [String: Any]
+        for field in ["parent_identity", "stage_identity"] {
+            let identities = manifest[field] as! [String: String]
+            manifest[field] = identities.mapValues { identity in
+                let parts = identity.split(separator: ":")
+                return String(repeating: "9", count: parts[0].count) + ":" + parts[1]
+            }
+        }
+        let after = try JSONSerialization.data(withJSONObject: manifest, options: [.sortedKeys])
+        precondition(before.count == after.count)
+        try after.write(to: manifestURL)
+        let directory = stateDirectory.appendingPathComponent("reservations")
+        for url in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            where url.lastPathComponent.hasPrefix("quota-") && url.pathExtension == "json" {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            try Data(text.replacingOccurrences(of: before.applySHA256, with: after.applySHA256).utf8).write(to: url)
+        }
+        await state.recordManifestDigest(transaction, digest: after.applySHA256)
+        try await service.syncDedicatedTransactionForTesting(transaction)
     }
     public func exerciseConcurrentPersistence(keys: [String]) async {
         await withTaskGroup(of: Void.self) { group in
@@ -5377,7 +5426,7 @@ public final class ApplyChangeSetTestProbe: @unchecked Sendable {
         let marker = namespace.appendingPathComponent("marker.json")
         var rootInfo = stat()
         guard lstat(root.path, &rootInfo) == 0 else { throw ApplyChangeSetError(.rootMismatch) }
-        let data = try JSONSerialization.data(withJSONObject: ["schema": "aishell.apply-change-set-namespace.v1", "root": root.standardizedFileURL.resolvingSymlinksInPath().path, "generation": state.generation, "root_device": String(rootInfo.st_dev), "root_inode": String(rootInfo.st_ino), "nonce": UUID().uuidString.lowercased()], options: [.sortedKeys])
+        let data = try JSONSerialization.data(withJSONObject: ["schema": "aishell.apply-change-set-namespace.v1", "root": root.standardizedFileURL.resolvingSymlinksInPath().path, "generation": state.generation, "root_inode": String(rootInfo.st_ino), "nonce": UUID().uuidString.lowercased()], options: [.sortedKeys])
         try data.write(to: marker, options: .atomic)
     }
 

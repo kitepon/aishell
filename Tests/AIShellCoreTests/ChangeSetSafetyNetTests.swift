@@ -286,6 +286,21 @@ final class ChangeSetSafetyNetTests: XCTestCase {
         }
     }
 
+    func testTrashRecoveryAcceptsObsoleteDevicesBeforeAndAfterMovingCandidate() async throws {
+        for moved in [false, true] {
+            let f = try await ChangeSetFixture.make()
+            defer { f.cleanup() }
+            let request = try await f.deleteRequest()
+            await f.faults.crashOnce(at: .trashIntentFSyncAfter)
+            await XCTAssertThrowsSimulatedCrash { try await f.service.apply(request) }
+            try await f.probe.replaceTrashDevicesForTesting(for: request, service: f.service, moveCandidate: moved)
+            _ = try await f.restartedService().recover(root: f.root)
+            let count = try await f.probe.trashReceiptCount(request)
+            XCTAssertEqual(count, 1)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("delete-only").path))
+        }
+    }
+
     func testTrashCrashRecoveryUsesOnlyTheUniqueIntendedIdentity() async throws {
         for point in ApplyChangeSetFailurePoint.trashIntentReceiptPoints {
             let f = try await ChangeSetFixture.make(label: point.rawValue)

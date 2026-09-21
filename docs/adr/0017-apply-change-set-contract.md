@@ -2,6 +2,8 @@
 
 > 0.5.0で許可フォルダの登録・範囲制限を廃止した。本書の許可rootに関する契約は[ADR 0030](0030-folder-registration-removal.md)で置き換えられた。本文は当時の設計・検証記録として保持する。
 
+> 保存したdevice番号との一致を要求する記述は廃止した。現在の編集状態・復旧の契約は[導入・診断契約](../setup.md#編集状態の更新)を参照する。
+
 - Status: Accepted
 - Date: 2026-07-21
 - Amended: 2026-07-23 (ACE-053 public cursor/client integration)

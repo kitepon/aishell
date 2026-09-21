@@ -5,6 +5,39 @@ import XCTest
 @testable import AIShellCore
 
 final class ChangeSetServiceTests: XCTestCase {
+    func testRestartAcceptsObsoleteNamespaceDeviceWithoutChangingMarker() async throws {
+        let fixture = try await Fixture.make()
+        defer { fixture.cleanup() }
+        let markerURL = fixture.root.appendingPathComponent(".aishell-transactions/marker.json")
+        var marker = try JSONSerialization.jsonObject(with: Data(contentsOf: markerURL)) as! [String: String]
+        marker["root_device"] = "99999999"
+        let bytes = try JSONSerialization.data(withJSONObject: marker, options: [.sortedKeys])
+        try bytes.write(to: markerURL)
+        let restarted = try fixture.freshService()
+        try await restarted.bootstrap(root: fixture.root)
+        let result = try await restarted.apply(try await fixture.singleWriteRequest(after: "再起動後の編集"))
+        XCTAssertEqual(result.status, .committed)
+        XCTAssertEqual(try Data(contentsOf: markerURL), bytes)
+        XCTAssertEqual(try String(contentsOf: fixture.root.appendingPathComponent("one.txt"), encoding: .utf8), "再起動後の編集")
+    }
+
+    func testInterruptedEditingRecoversWithObsoleteManifestDevices() async throws {
+        for point in [ApplyChangeSetFailurePoint.stageFSyncAfter, .commitDecisionFSyncAfter, .firstTargetReceiptAfter] {
+            let fixture = try await Fixture.make()
+            defer { fixture.cleanup() }
+            let request = try await fixture.singleWriteRequest(after: "再起動後の復旧")
+            await fixture.faults.crashOnce(at: point)
+            do { _ = try await fixture.service.apply(request); XCTFail("中断が発生しませんでした") }
+            catch is ApplyChangeSetSimulatedCrash {}
+            try await fixture.probe.replaceManifestDeviceForTesting(for: request, service: fixture.service)
+            let restarted = try fixture.freshService()
+            try await restarted.bootstrap(root: fixture.root)
+            _ = try await restarted.recover(root: fixture.root)
+            XCTAssertEqual(try String(contentsOf: fixture.root.appendingPathComponent("one.txt"), encoding: .utf8),
+                           point == .stageFSyncAfter ? "before" : "再起動後の復旧")
+        }
+    }
+
     func testAdmissionIntentCrashReconcilesBeforePublicationValidation() async throws {
         let fixture = try await Fixture.make()
         defer { fixture.cleanup() }
@@ -918,6 +951,7 @@ final class ChangeSetServiceTests: XCTestCase {
         do { _ = try await fixture.service.apply(request); XCTFail("commit decision crashが発生しませんでした") }
         catch is ApplyChangeSetSimulatedCrash {}
 
+        try await fixture.probe.replaceManifestDeviceForTesting(for: request, service: fixture.service)
         let restarted = try fixture.freshService()
         _ = try await restarted.recover(root: fixture.root)
         let aMode = (try FileManager.default.attributesOfItem(atPath: a.path)[.posixPermissions] as? NSNumber)?.intValue

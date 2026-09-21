@@ -4,6 +4,44 @@ import XCTest
 @testable import AIShellCore
 
 final class ChangeSetQuotaLedgerTests: XCTestCase {
+    func testRestartContinuesReservedAndMaterializedFilesWithObsoleteDevices() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let owner = ChangeSetQuotaLedger.OwnerBinding.current()
+        let ledger = try ChangeSetQuotaLedger(ledgerDirectory: fixture.directory, reservationID: "device-change", ownerBinding: owner)
+        let capacities = ["first", "second"].map {
+            ChangeSetQuotaLedger.Capacity(id: $0, idempotencyKey: $0, kind: .afterStage, maximumEncodedBytes: 128, allocationDirectory: fixture.directory)
+        }
+        _ = try await ledger.prepareCapacity(capacities)
+        let firstURL = fixture.directory.appendingPathComponent("first.txt")
+        let firstData = Data("既存の内容".utf8)
+        _ = try await Self.materialize(ledger, materialID: "first", key: "first", data: firstData, final: firstURL)
+        let url = fixture.directory.appendingPathComponent("quota-device-change.json")
+        let original = try Data(contentsOf: url)
+        func renumber(_ value: Any) -> Any {
+            if let object = value as? [String: Any] {
+                return Dictionary(uniqueKeysWithValues: object.map { key, value in
+                    let value = ["ledgerDevice", "device", "volume", "finalDevice"].contains(key)
+                        ? "00000000000099999999" : renumber(value)
+                    return (key, value)
+                })
+            }
+            if let array = value as? [Any] { return array.map(renumber) }
+            return value
+        }
+        let changed = try JSONSerialization.data(withJSONObject: renumber(JSONSerialization.jsonObject(with: original)), options: [.sortedKeys, .withoutEscapingSlashes])
+        XCTAssertEqual(changed.count, original.count)
+        try changed.write(to: url)
+        let restarted = try ChangeSetQuotaLedger(ledgerDirectory: fixture.directory, reservationID: "device-change", ownerBinding: owner)
+        _ = try await restarted.reconcile()
+        _ = try await restarted.prepareCapacity(capacities)
+        let secondURL = fixture.directory.appendingPathComponent("second.txt")
+        _ = try await Self.materialize(restarted, materialID: "second", key: "second", data: Data("次の内容".utf8), final: secondURL)
+        XCTAssertEqual(try Data(contentsOf: firstURL), firstData)
+        try await restarted.releaseAndUnlinkMaterial(materialID: "first", idempotencyKey: "first")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstURL.path))
+    }
+
     func testExactEncodedMaterialsAndLedgerReachFixedPoint() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }

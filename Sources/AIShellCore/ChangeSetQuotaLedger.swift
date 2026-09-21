@@ -466,7 +466,7 @@ public actor ChangeSetQuotaLedger {
         guard material.idempotencyKey == idempotencyKey else { throw LedgerError.idempotencyMismatch(materialID) }
         let canonicalFinal = try Self.canonicalPlannedFinal(finalURL)
         let planned = try Self.encodePath(canonicalFinal.path)
-        let device = try Self.parseUInt(material.volume)
+        let device = try Self.device(ofExistingDirectory: URL(fileURLWithPath: material.extentFilePath).deletingLastPathComponent())
         guard try Self.device(ofExistingDirectory: canonicalFinal.deletingLastPathComponent()) == device else { throw LedgerError.differentLedgerVolume }
         if material.status == 1 || material.status == 2 {
             guard try Self.plannedFinalURL(material).path == canonicalFinal.path else { throw LedgerError.finalPathMismatch(materialID) }
@@ -475,7 +475,7 @@ public actor ChangeSetQuotaLedger {
         guard material.status == 0 else { throw LedgerError.materializationIncomplete(materialID) }
         let extent = URL(fileURLWithPath: material.extentFilePath)
         let capacity = try Self.parse(material.bytes)
-        do { try Self.requireExtent(extent, device: device, size: capacity) }
+        do { try Self.requireExtent(extent, size: capacity) }
         catch let failure as ExtentFailure {
             throw LedgerError.physicalReservationNotConverged(Self.physicalDiagnostic(material, expectedSize: capacity, failure: failure))
         }
@@ -531,8 +531,7 @@ public actor ChangeSetQuotaLedger {
         let canonical = try Self.canonicalPlannedFinal(finalURL)
         let plannedFinal = try Self.plannedFinalURL(material)
         guard canonical.path == plannedFinal.path else { throw LedgerError.finalPathMismatch(materialID) }
-        let identity = try Self.inspectMaterialized(canonical, expectedDevice: try Self.parseUInt(material.volume),
-                                                    expectedBytes: try Self.parse(material.actualBytes), expectedSHA: material.sha256)
+        let identity = try Self.inspectMaterialized(canonical, expectedBytes: try Self.parse(material.actualBytes), expectedSHA: material.sha256)
         if material.status == 3 {
             try Self.validateStoredIdentity(material, identity: identity)
             return Self.materializationReceipt(material, identity: identity)
@@ -563,18 +562,15 @@ public actor ChangeSetQuotaLedger {
               try Self.plannedFinalURL(new).path == canonical.path else { throw LedgerError.finalPathMismatch(newMaterialID) }
 
         if old.status == 4, new.status == 3 {
-            let identity = try Self.inspectMaterialized(canonical, expectedDevice: try Self.parseUInt(new.volume),
-                                                        expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
+            let identity = try Self.inspectMaterialized(canonical, expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
             try Self.validateStoredIdentity(new, identity: identity)
             return .init(supersededMaterialID: oldMaterialID, materialized: Self.materializationReceipt(new, identity: identity))
         }
         if new.status != 5 {
             guard old.status == 3, new.status == 2 else { throw LedgerError.materializationIncomplete(newMaterialID) }
-            let oldIdentity = try Self.inspectMaterialized(canonical, expectedDevice: try Self.parseUInt(old.volume),
-                                                           expectedBytes: try Self.parse(old.actualBytes), expectedSHA: old.sha256)
+            let oldIdentity = try Self.inspectMaterialized(canonical, expectedBytes: try Self.parse(old.actualBytes), expectedSHA: old.sha256)
             try Self.validateStoredIdentity(old, identity: oldIdentity)
-            _ = try Self.inspectMaterialized(URL(fileURLWithPath: new.extentFilePath), expectedDevice: try Self.parseUInt(new.volume),
-                                             expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
+            _ = try Self.inspectMaterialized(URL(fileURLWithPath: new.extentFilePath), expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
             snapshot = Self.markingReplacementIntent(snapshot, newIndex: newIndex, oldID: oldMaterialID)
             try persist(snapshot)
             if lifecycleFailurePoint == .replacementIntentPersisted {
@@ -585,8 +581,7 @@ public actor ChangeSetQuotaLedger {
         }
         snapshot = try completeReplacement(snapshot, newIndex: newIndex)
         let materialized = snapshot.materials[newIndex]
-        let identity = try Self.inspectMaterialized(canonical, expectedDevice: try Self.parseUInt(materialized.volume),
-                                                    expectedBytes: try Self.parse(materialized.actualBytes), expectedSHA: materialized.sha256)
+        let identity = try Self.inspectMaterialized(canonical, expectedBytes: try Self.parse(materialized.actualBytes), expectedSHA: materialized.sha256)
         return .init(supersededMaterialID: oldMaterialID, materialized: Self.materializationReceipt(materialized, identity: identity))
     }
 
@@ -616,8 +611,7 @@ public actor ChangeSetQuotaLedger {
         if material.status == 4 { return }
         if material.status == 3 {
             let final = try Self.plannedFinalURL(material)
-            let identity = try Self.inspectMaterialized(final, expectedDevice: try Self.parseUInt(material.finalDevice),
-                expectedBytes: try Self.parse(material.finalBytes), expectedSHA: material.finalSHA256)
+            let identity = try Self.inspectMaterialized(final, expectedBytes: try Self.parse(material.finalBytes), expectedSHA: material.finalSHA256)
             try Self.validateStoredIdentity(material, identity: identity)
             snapshot = Self.markingUnlinkIntent(snapshot, materialIndex: index)
             try persist(snapshot)
@@ -696,10 +690,7 @@ public actor ChangeSetQuotaLedger {
               replacement.maximumEncodedBytes >= 0 else { throw LedgerError.invalidIdentifier("recycled slot shape") }
         let directory = replacement.allocationDirectory.standardizedFileURL.resolvingSymlinksInPath()
         let extent = URL(fileURLWithPath: material.extentFilePath)
-        let directoryDevice = try Self.device(ofExistingDirectory: directory)
-        let expectedDevice = try Self.parseUInt(material.volume)
         guard directory.path == extent.deletingLastPathComponent().path,
-              directoryDevice == expectedDevice,
               !FileManager.default.fileExists(atPath: extent.path) else { throw LedgerError.differentLedgerVolume }
         try Self.preallocate(extent, bytes: replacement.maximumEncodedBytes)
         do {
@@ -748,13 +739,7 @@ public actor ChangeSetQuotaLedger {
         var snapshot = initial
         if snapshot.abandonmentState == 1 { snapshot = try completeAbandonment(snapshot) }
         if snapshot.abandonmentState == 2 { return }
-        let ledgerDevice = try Self.device(ofExistingDirectory: ledgerDirectory)
-        let expectedLedgerDevice = try Self.parseUInt(snapshot.ledgerDevice)
-        guard ledgerDevice == expectedLedgerDevice else { throw LedgerError.differentLedgerVolume }
         for volume in snapshot.volumes {
-            let device = try Self.parseUInt(volume.device)
-            let directory = URL(fileURLWithPath: volume.directoryPath)
-            guard try Self.device(ofExistingDirectory: directory) == device else { throw LedgerError.differentLedgerVolume }
             if !volume.reserveFilePath.isEmpty {
                 try Self.resizeAndSync(URL(fileURLWithPath: volume.reserveFilePath), bytes: 0)
             }
@@ -777,31 +762,27 @@ public actor ChangeSetQuotaLedger {
             }
             guard !oldCandidates.isEmpty else { continue }
             guard oldCandidates.count == 1 else { throw LedgerError.corruptLedger("multiple active generations share a final path") }
-            let identity = try Self.inspectMaterialized(final, expectedDevice: try Self.parseUInt(new.volume),
-                                                        expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
+            let identity = try Self.inspectMaterialized(final, expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
             snapshot = Self.completingReplacement(snapshot, oldIndex: oldCandidates[0], newIndex: newIndex, identity: identity)
             try persist(snapshot)
         }
         for index in snapshot.materials.indices {
             let material = snapshot.materials[index]
             if material.status == 4 { continue }
-            let device = try Self.parseUInt(material.volume)
             let extent = URL(fileURLWithPath: material.extentFilePath)
             if material.status == 3 {
-                let identity = try Self.inspectMaterialized(try Self.plannedFinalURL(material), expectedDevice: device,
-                                                            expectedBytes: try Self.parse(material.actualBytes), expectedSHA: material.sha256)
+                let identity = try Self.inspectMaterialized(try Self.plannedFinalURL(material), expectedBytes: try Self.parse(material.actualBytes), expectedSHA: material.sha256)
                 try Self.validateStoredIdentity(material, identity: identity)
                 continue
             }
             if material.status == 2, !FileManager.default.fileExists(atPath: extent.path) {
-                let identity = try Self.inspectMaterialized(try Self.plannedFinalURL(material), expectedDevice: device,
-                                                            expectedBytes: try Self.parse(material.actualBytes), expectedSHA: material.sha256)
+                let identity = try Self.inspectMaterialized(try Self.plannedFinalURL(material), expectedBytes: try Self.parse(material.actualBytes), expectedSHA: material.sha256)
                 snapshot = Self.materializing(snapshot, materialIndex: index, identity: identity)
                 try persist(snapshot)
                 continue
             }
             let expectedSize = material.status == 2 ? try Self.parse(material.actualBytes) : try Self.parse(material.bytes)
-            do { try Self.resizeAndSync(extent, bytes: expectedSize, expectedDevice: device) }
+            do { try Self.resizeAndSync(extent, bytes: expectedSize) }
             catch let failure as ExtentFailure {
                 throw LedgerError.physicalReservationNotConverged(Self.physicalDiagnostic(material, expectedSize: expectedSize, failure: failure))
             }
@@ -821,8 +802,7 @@ public actor ChangeSetQuotaLedger {
                 let final = try Self.plannedFinalURL(material)
                 var info = stat()
                 if lstat(final.path, &info) == 0 {
-                    let identity = try Self.inspectMaterialized(final, expectedDevice: try Self.parseUInt(material.finalDevice),
-                                                                expectedBytes: try Self.parse(material.finalBytes),
+                    let identity = try Self.inspectMaterialized(final, expectedBytes: try Self.parse(material.finalBytes),
                                                                 expectedSHA: material.finalSHA256)
                     try Self.validateStoredIdentity(material, identity: identity)
                     try Self.durableUnlink(final)
@@ -851,21 +831,17 @@ public actor ChangeSetQuotaLedger {
         let final = try Self.plannedFinalURL(new)
         guard try Self.plannedFinalURL(old).path == final.path else { throw LedgerError.finalPathMismatch(new.id) }
         let extent = URL(fileURLWithPath: new.extentFilePath)
-        let device = try Self.parseUInt(new.volume)
 
         if FileManager.default.fileExists(atPath: extent.path) {
-            let oldIdentity = try Self.inspectMaterialized(final, expectedDevice: try Self.parseUInt(old.volume),
-                                                           expectedBytes: try Self.parse(old.actualBytes), expectedSHA: old.sha256)
+            let oldIdentity = try Self.inspectMaterialized(final, expectedBytes: try Self.parse(old.actualBytes), expectedSHA: old.sha256)
             try Self.validateStoredIdentity(old, identity: oldIdentity)
-            _ = try Self.inspectMaterialized(extent, expectedDevice: device,
-                                             expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
-            try Self.atomicReplaceMaterial(extent, final: final, expectedDevice: device)
+            _ = try Self.inspectMaterialized(extent, expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
+            try Self.atomicReplaceMaterial(extent, final: final)
             if lifecycleFailurePoint == .replacementRenameCompleted {
                 throw SimulatedLifecycleCrash(point: .replacementRenameCompleted)
             }
         }
-        let newIdentity = try Self.inspectMaterialized(final, expectedDevice: device,
-                                                       expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
+        let newIdentity = try Self.inspectMaterialized(final, expectedBytes: try Self.parse(new.actualBytes), expectedSHA: new.sha256)
         snapshot = Self.completingReplacement(snapshot, oldIndex: oldIndex, newIndex: newIndex, identity: newIdentity)
         try persist(snapshot)
         return snapshot
@@ -878,8 +854,7 @@ public actor ChangeSetQuotaLedger {
         let final = try Self.plannedFinalURL(material)
         var info = stat()
         if lstat(final.path, &info) == 0 {
-            let identity = try Self.inspectMaterialized(final, expectedDevice: try Self.parseUInt(material.finalDevice),
-                                                        expectedBytes: try Self.parse(material.finalBytes),
+            let identity = try Self.inspectMaterialized(final, expectedBytes: try Self.parse(material.finalBytes),
                                                         expectedSHA: material.finalSHA256)
             try Self.validateStoredIdentity(material, identity: identity)
             try Self.durableUnlink(final)
@@ -1132,20 +1107,22 @@ public actor ChangeSetQuotaLedger {
 
     private static func samePlan(_ lhs: Snapshot, _ rhs: Snapshot) -> Bool {
         guard lhs.schema == rhs.schema, lhs.reservationID == rhs.reservationID,
-              lhs.ledgerDevice == rhs.ledgerDevice, lhs.ledgerBytes == rhs.ledgerBytes,
+              lhs.ledgerBytes == rhs.ledgerBytes,
               lhs.ownerBootID == rhs.ownerBootID, lhs.ownerProcessStartIdentity == rhs.ownerProcessStartIdentity,
               lhs.ownerInstanceNonce == rhs.ownerInstanceNonce else { return false }
-        let normalizedMaterials = lhs.materials.map {
-            MaterialRecord(id: $0.id, idempotencyKey: $0.idempotencyKey, kind: $0.kind,
-                           bytes: $0.bytes, actualBytes: fixed(0), expectedSHA256: $0.expectedSHA256,
-                           sha256: zeroDigest, volume: $0.volume, extentFilePath: $0.extentFilePath,
-                           plannedFinalPathHex: emptyPathHex, plannedFinalPathBytes: fixed(0),
-                           finalDevice: fixed(0), finalInode: fixed(0), finalBytes: fixed(0), finalSHA256: zeroDigest,
-                           replacementOldID: emptyIdentifier, status: 0)
+        func normalizedMaterials(_ snapshot: Snapshot) -> [MaterialRecord] {
+            snapshot.materials.map {
+                MaterialRecord(id: $0.id, idempotencyKey: $0.idempotencyKey, kind: $0.kind,
+                               bytes: $0.bytes, actualBytes: fixed(0), expectedSHA256: $0.expectedSHA256,
+                               sha256: zeroDigest, volume: fixed(0), extentFilePath: $0.extentFilePath,
+                               plannedFinalPathHex: emptyPathHex, plannedFinalPathBytes: fixed(0),
+                               finalDevice: fixed(0), finalInode: fixed(0), finalBytes: fixed(0), finalSHA256: zeroDigest,
+                               replacementOldID: emptyIdentifier, status: 0)
+            }
         }
-        guard normalizedMaterials == rhs.materials, lhs.volumes.count == rhs.volumes.count else { return false }
-        return zip(lhs.volumes, rhs.volumes).allSatisfy {
-            $0.device == $1.device && $0.directoryPath == $1.directoryPath && $0.totalBytes == $1.totalBytes
+        guard normalizedMaterials(lhs) == normalizedMaterials(rhs), lhs.volumes.count == rhs.volumes.count else { return false }
+        return zip(lhs.volumes.sorted { $0.directoryPath < $1.directoryPath }, rhs.volumes.sorted { $0.directoryPath < $1.directoryPath }).allSatisfy {
+            $0.directoryPath == $1.directoryPath && $0.totalBytes == $1.totalBytes
         }
     }
 
@@ -1168,15 +1145,12 @@ public actor ChangeSetQuotaLedger {
         guard close(descriptor) == 0 else { throw LedgerError.preallocationFailed(volume: device, errno: errno) }
     }
 
-    private static func requireExtent(_ url: URL, device: UInt64, size: Int) throws {
+    private static func requireExtent(_ url: URL, size: Int) throws {
         let descriptor = open(url.path, O_RDWR | O_CLOEXEC | O_NOFOLLOW)
         guard descriptor >= 0 else { throw ExtentFailure(stage: .open, physicalSize: nil, physicalDevice: nil) }
         defer { close(descriptor) }
         var info = stat()
         guard fstat(descriptor, &info) == 0 else { throw ExtentFailure(stage: .fstat, physicalSize: nil, physicalDevice: nil) }
-        guard UInt64(info.st_dev) == device else {
-            throw ExtentFailure(stage: .deviceMismatch, physicalSize: Int(info.st_size), physicalDevice: UInt64(info.st_dev))
-        }
         guard Int(info.st_size) == size else {
             throw ExtentFailure(stage: .truncate, physicalSize: Int(info.st_size), physicalDevice: UInt64(info.st_dev))
         }
@@ -1196,16 +1170,13 @@ public actor ChangeSetQuotaLedger {
         )
     }
 
-    private static func resizeAndSync(_ url: URL, bytes: Int, expectedDevice: UInt64? = nil) throws {
+    private static func resizeAndSync(_ url: URL, bytes: Int) throws {
         let descriptor = open(url.path, O_RDWR | O_CLOEXEC | O_NOFOLLOW)
         guard descriptor >= 0 else { throw ExtentFailure(stage: .open, physicalSize: nil, physicalDevice: nil) }
         defer { close(descriptor) }
         var info = stat()
         guard fstat(descriptor, &info) == 0 else { throw ExtentFailure(stage: .fstat, physicalSize: nil, physicalDevice: nil) }
         let physicalSize = Int(info.st_size), physicalDevice = UInt64(info.st_dev)
-        guard expectedDevice == nil || physicalDevice == expectedDevice else {
-            throw ExtentFailure(stage: .deviceMismatch, physicalSize: physicalSize, physicalDevice: physicalDevice)
-        }
         guard ftruncate(descriptor, off_t(bytes)) == 0 else {
             throw ExtentFailure(stage: .truncate, physicalSize: physicalSize, physicalDevice: physicalDevice)
         }
@@ -1214,11 +1185,11 @@ public actor ChangeSetQuotaLedger {
         }
     }
 
-    private static func atomicReplaceMaterial(_ extent: URL, final: URL, expectedDevice: UInt64) throws {
+    private static func atomicReplaceMaterial(_ extent: URL, final: URL) throws {
         var extentInfo = stat(), parentInfo = stat()
         let parent = final.deletingLastPathComponent()
         guard lstat(extent.path, &extentInfo) == 0, lstat(parent.path, &parentInfo) == 0,
-              UInt64(extentInfo.st_dev) == expectedDevice, UInt64(parentInfo.st_dev) == expectedDevice,
+              extentInfo.st_dev == parentInfo.st_dev,
               rename(extent.path, final.path) == 0 else { throw LedgerError.materializationIncomplete(final.path) }
         let parentFD = open(parent.path, O_RDONLY | O_DIRECTORY | O_CLOEXEC)
         guard parentFD >= 0, fsync(parentFD) == 0, close(parentFD) == 0 else {
@@ -1302,10 +1273,10 @@ public actor ChangeSetQuotaLedger {
         return URL(fileURLWithPath: path)
     }
 
-    private static func inspectMaterialized(_ url: URL, expectedDevice: UInt64, expectedBytes: Int, expectedSHA: String) throws -> MaterialIdentity {
+    private static func inspectMaterialized(_ url: URL, expectedBytes: Int, expectedSHA: String) throws -> MaterialIdentity {
         var info = stat()
         guard lstat(url.path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG,
-              UInt64(info.st_dev) == expectedDevice, Int(info.st_size) == expectedBytes else {
+              Int(info.st_size) == expectedBytes else {
             throw LedgerError.materializationIncomplete(url.path)
         }
         let digest = sha256(try Data(contentsOf: url, options: [.mappedIfSafe]))
@@ -1314,8 +1285,7 @@ public actor ChangeSetQuotaLedger {
     }
 
     private static func validateStoredIdentity(_ material: MaterialRecord, identity: MaterialIdentity) throws {
-        guard try parseUInt(material.finalDevice) == identity.device,
-              try parseUInt(material.finalInode) == identity.inode,
+        guard try parseUInt(material.finalInode) == identity.inode,
               try parse(material.finalBytes) == identity.bytes,
               material.finalSHA256 == identity.sha256 else { throw LedgerError.materializationIncomplete(material.id) }
     }
@@ -1369,8 +1339,7 @@ public actor ChangeSetQuotaLedger {
               validDigest(binding.sha256) else { throw LedgerError.abandonmentForbiddenState(material.id) }
         try validateCanonicalBinding(material, binding: binding)
         let final = try plannedFinalURL(material)
-        let identity = try inspectMaterialized(final, expectedDevice: binding.device,
-                                               expectedBytes: binding.bytes, expectedSHA: binding.sha256)
+        let identity = try inspectMaterialized(final, expectedBytes: binding.bytes, expectedSHA: binding.sha256)
         try validateStoredIdentity(material, identity: identity)
         guard identity.inode == binding.inode else { throw LedgerError.materializationIncomplete(material.id) }
         return material.id
@@ -1399,7 +1368,6 @@ public actor ChangeSetQuotaLedger {
         binding: PreparedAbandonmentAttestation.CanonicalMaterializedBinding
     ) throws {
         guard material.kind == .canonicalEnvelope,
-              try parseUInt(material.finalDevice) == binding.device,
               try parseUInt(material.finalInode) == binding.inode,
               try parse(material.finalBytes) == binding.bytes,
               material.finalSHA256 == binding.sha256 else {
